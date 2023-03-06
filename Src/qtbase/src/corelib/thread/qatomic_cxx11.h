@@ -38,7 +38,7 @@ struct QAtomicOps {
     }
 
     template <typename T> static inline
-    T loadRelaxed(const std::atomic<T> _q_value) noexcept {
+    T loadRelaxed(const std::atomic<T> &_q_value) noexcept {
         return _q_value.load(std::memory_order_relaxed);
     }
 
@@ -258,6 +258,8 @@ struct QAtomicOps {
         return _q_value.fetch_nor(valueToNor, std::memory_order_acq_rel);
     }
 };
+
+#define Q_BASIC_ATOMIC_INITIALIZER(a) { a }
 
 QT_END_NAMESPACE
 

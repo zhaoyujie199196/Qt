@@ -2,7 +2,6 @@
 // Created by Yujie Zhao on 2023/2/6.
 //
 
-#include <iostream>
 #include <QChar>
 #include <QTest>
 #include <sstream>

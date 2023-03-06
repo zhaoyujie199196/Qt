@@ -4,8 +4,65 @@
 
 #include "qmetatype.h"
 #include "qmetatype_p.h"
+#include <map>
+#include <vector>
+#include <string>
+#include <QtCore/qreadwritelock.h>
 
 QT_BEGIN_NAMESPACE
+
+struct QMetaTypeCustomRegistry
+{
+    std::map<std::string, const QtPrivate::QMetaTypeInterface *> aliases;
+    std::vector<const QtPrivate::QMetaTypeInterface *> registry;
+    int firstEmpty = 0;
+
+    //zhaoyujie TODO
+    static QMetaTypeCustomRegistry* instance() {
+        static QMetaTypeCustomRegistry s_instance;
+        return &s_instance;
+    }
+
+    int registerCustomType(const QtPrivate::QMetaTypeInterface *ti) {
+        QWriteLocker l();
+        if (ti->typeId) {
+            return ti->typeId;
+        }
+        std::string name(ti->name);
+        auto ti2It = aliases.find(name);
+        if(ti2It != aliases.end()) {;
+            ti->typeId.storeRelaxed(ti2It->second->typeId.loadRelaxed());
+            return ti2It->second->typeId;
+        }
+        else {
+            aliases[name] = ti;
+            int size = registry.size();
+            while (firstEmpty < size && registry[firstEmpty]) {
+                ++firstEmpty;
+            }
+            if (firstEmpty < size) {
+                registry[firstEmpty] = ti;
+                ++firstEmpty;
+            }
+            else {
+                registry.push_back(ti);
+                firstEmpty = registry.size();
+            }
+            ti->typeId = firstEmpty + QMetaType::User;
+        }
+        if (ti->legacyRegisterOp) {
+            ti->legacyRegisterOp();
+        }
+        return ti->typeId;
+    }
+
+    const QtPrivate::QMetaTypeInterface *getCustomType(int id)
+    {
+        QReadLocker locker;
+        return registry[id - QMetaType::User - 1];
+    }
+
+};
 
 //static 只对正在编译的源代码文件
 //const 表示不能修改里面的成员
@@ -37,9 +94,9 @@ static const QMetaTypeModuleHelper *qModuleHelperForType(int type) {
 
 static const QtPrivate::QMetaTypeInterface *interfaceForType(int typeId) {
     const QtPrivate::QMetaTypeInterface *interface = nullptr;
-    if (typeId >= QMetaType::User) {
-        Q_ASSERT(false);
-        return nullptr;
+    if (typeId >= QMetaType::User) {  //用户自己注册的类型
+        auto reg = QMetaTypeCustomRegistry::instance();
+        interface = reg->getCustomType(typeId);
     }
     else {
         auto moduleHelper = qModuleHelperForType(typeId);
@@ -114,6 +171,31 @@ void *QMetaType::construct(void *address, const void *copy) const {
     }
     Q_ASSERT(false);
     return nullptr;
+}
+
+int QMetaType::idHelper() const {
+    Q_ASSERT(d_ptr);
+    auto reg = QMetaTypeCustomRegistry::instance();
+    if (reg) {
+        return reg->registerCustomType(d_ptr);
+    }
+    return 0;
+}
+
+void QMetaType::registerNormalizedTypedef(const std::string &normalizedTypeName, QMetaType metaType)
+{
+    if (!metaType.valid()) {
+        return;
+    }
+    auto reg = QMetaTypeCustomRegistry::instance();
+    if (reg) {
+        QWriteLocker locker;
+        auto it = reg->aliases.find(normalizedTypeName);
+        if (it != reg->aliases.end()) {
+            return;
+        }
+        reg->aliases[normalizedTypeName] = metaType.d_ptr;
+    }
 }
 
 QT_END_NAMESPACE

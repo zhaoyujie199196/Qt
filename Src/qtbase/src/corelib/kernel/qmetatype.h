@@ -9,9 +9,13 @@
 #include <QtCore/qchar.h>
 #include <QtCore/qatomic.h>
 #include <array>
+#include <string>
+#include <string_view>
+#include "qmetatypenormalizer_p.h"
 
 QT_BEGIN_NAMESPACE
 
+class QByteArrayView;
 //zhaoyujie TODO QCborSimpleType的作用是什么
 enum class QCborSimpleType : quint8;
 
@@ -84,7 +88,7 @@ namespace QtPrivate
 
 //        using MetaObjectFn = const QMetaObject *(*)(const QMetaTypeInterface *);
 //        MetaObjectFn metaObjectFn;
-//        const char *name;
+        const char *name;
         using DefaultCtrFn = void (*)(const QMetaTypeInterface *, void *);
         DefaultCtrFn defaultCtr;  //不带参数的默认构造函数
         using CopyCtrFn = void (*)(const QMetaTypeInterface *, void *, const void *);
@@ -104,13 +108,15 @@ namespace QtPrivate
 //        using DataStreamInFn = void (*)(const QMetaTypeInterface *, QDataStream &, void *);
 //        DataStreamInFn dataStreamIn;
 //
-//        using LegacyRegisterOp = void (*)();
-//        LegacyRegisterOp legacyRegisterOp;
+        using LegacyRegisterOp = void (*)();
+        LegacyRegisterOp legacyRegisterOp;
     };
 
     template <typename T>
     class QMetaTypeForType {
     public:
+        static constexpr decltype(typenameHelper<T>()) name = typenameHelper<T>();
+
         //默认构造函数
         static constexpr QMetaTypeInterface::DefaultCtrFn getDefaultCtr() {
             //std::is_default_constructible_v 是否有无参数构造函数
@@ -129,8 +135,8 @@ namespace QtPrivate
         static constexpr QMetaTypeInterface::CopyCtrFn getCopyCtr()
         {
             if constexpr(std::is_copy_constructible_v<T>) {
-                return [](const QMetaTypeInterface *, void *address, const void *other) {
-                     new (address) T(*reinterpret_cast<const T*>(other));
+                return [](const QMetaTypeInterface *, void *address, const void *other){
+                    new (address) T(*reinterpret_cast<const T*>(other));
                 };
             }
             else {
@@ -150,6 +156,26 @@ namespace QtPrivate
                 return nullptr;
             }
         }
+
+        static constexpr QMetaTypeInterface::LegacyRegisterOp getLegacyRegister() {
+            if constexpr (QMetaTypeId2<T>::Defined && !QMetaTypeId2<T>::IsBuiltIn) {
+                return []() {
+                    QMetaTypeId2<T>::qt_metatype_id();
+                };
+            }
+            else {
+                return nullptr;
+            }
+        }
+
+        static constexpr const char *getName() {
+            if constexpr (bool(QMetaTypeId2<T>::IsBuiltIn)) {
+                return QMetaTypeId2<T>::nameAsArray.data();
+            }
+            else {
+                return name.data();
+            }
+        }
     };
 
     template<typename T>
@@ -161,7 +187,7 @@ namespace QtPrivate
 //                /*.flags=*/QMetaTypeTypeFlags<T>::Flags,
                 /*.typeId=*/BuiltinMetaType<T>::value,
 //                /*.metaObjectFn=*/ MetaObjectForType<T>::metaObjectFunction,
-//                /*.name=*/ QMetaTypeForType<T>::getName(),
+                /*.name=*/ QMetaTypeForType<T>::getName(),
                 /*.defaultCtr=*/ QMetaTypeForType<T>::getDefaultCtr(),
                 /*.copyCtr=*/ QMetaTypeForType<T>::getCopyCtr(),
 //                /*.moveCtr=*/ QMetaTypeForType<T>::getMoveCtr(),
@@ -171,7 +197,7 @@ namespace QtPrivate
 //                /*.debugStream=*/ QDebugStreamOperatorForType<T>::debugStream,
 //                /*.dataStreamOut=*/ QDataStreamOperatorForType<T>::dataStreamOut,
 //                /*.dataStreamIn=*/ QDataStreamOperatorForType<T>::dataStreamIn,
-//                /*.legacyRegisterOp=*/ QMetaTypeForType<T>::getLegacyRegister()
+                /*.legacyRegisterOp=*/ QMetaTypeForType<T>::getLegacyRegister()
         };
     };
 
@@ -185,7 +211,7 @@ namespace QtPrivate
 //                /*.flags=*/ 0,
                 /*.typeId=*/ BuiltinMetaType<void>::value,
 //                /*.metaObjectFn=*/ nullptr,
-//                /*.name=*/ "void",
+                /*.name=*/ "void",
                 /*.defaultCtr=*/ nullptr,
                 /*.copyCtr=*/ nullptr,
 //                /*.moveCtr=*/ nullptr,
@@ -195,9 +221,16 @@ namespace QtPrivate
 //                /*.debugStream=*/ nullptr,
 //                /*.dataStreamOut=*/ nullptr,
 //                /*.dataStreamIn=*/ nullptr,
-//                /*.legacyRegisterOp=*/ nullptr
+                /*.legacyRegisterOp=*/ nullptr
         };
     };
+
+    template <typename T>
+    constexpr const QMetaTypeInterface *qMetaTypeInterfaceForType()
+    {
+        using Ty = std::remove_cv_t<std::remove_reference_t<T>>;
+        return &QMetaTypeInterfaceWrapper<Ty>::metaType;
+    }
 };
 
 template <typename T>
@@ -237,9 +270,33 @@ public:
     explicit constexpr QMetaType(const QtPrivate::QMetaTypeInterface *d) : d_ptr(d) {}
     constexpr QMetaType() = default;
 
+    static void registerNormalizedTypedef(const std::string &normalizedTypeName, QMetaType metaType);
+
+    template <typename T>
+    static constexpr QMetaType fromType() {
+        return QMetaType(QtPrivate::qMetaTypeInterfaceForType<T>());
+    }
+
     void *create(const void *copy = nullptr) const;
     void destory(void *data) const;
     void *construct(void *address, const void *copy = nullptr) const;
+
+    int id(int = 0) const {
+        if (d_ptr) {
+            if (int id = d_ptr->typeId.loadRelaxed()) {
+                return id;
+            }
+            return idHelper();
+        }
+        return 0;
+    }
+
+    inline const char *name() const { return d_ptr ? d_ptr->name : nullptr; }
+    inline bool valid() const {return d_ptr;}
+    inline bool isRegistered() const {return d_ptr;}
+
+private:
+    int idHelper() const;
 
 private:
     const QtPrivate::QMetaTypeInterface *d_ptr = nullptr;
@@ -247,10 +304,63 @@ private:
 
 //特化模板，const &的的MetaType与基础类型保持一支
 template <typename T>
-struct QMetaTypeId2<const T&> : QMetaTypeId2<T> {};
+struct QMetaTypeId2<const T&> : QMetaTypeId2<T> {
+};
 
 template <typename T>
-struct QMetaTypeId2<T &> : QMetaTypeId2<T> { enum {Defined = false }; };
+struct QMetaTypeId2<T &> : QMetaTypeId2<T> {
+    enum {Defined = false };
+};
+
+template <typename T>
+int qRegisterNormalizedMetaType(const char *normalizedTypeName)
+{
+    const QMetaType metaType = QMetaType::fromType<T>();
+    const int id = metaType.id();
+//    QtPrivate::SequentialContainerTransformationHelper<T>::registerConverter();
+//    QtPrivate::SequentialContainerTransformationhelper<T>::registerMutableView();
+//    QtPrivate::AssociativeContainerTransformationHelper<T>::registerConverter();
+//    QtPrivate::AssociativeContainerTransformationHelper<T>::registerMutableView();
+//    QtPrivate::MetaTypePairHelper<T>::registerConverter();
+//    QtPrivate::MetaTypeSmartPointerHelper<T>::registerConverter();
+    if (normalizedTypeName != metaType.name()) {
+        QMetaType::registerNormalizedTypedef(std::string(normalizedTypeName), metaType);
+    }
+
+    return id;
+}
+
+
+#ifndef Q_MOC_RUN
+#define Q_DECLARE_METATYPE(TYPE) Q_DECLARE_METATYPE_IMPL(TYPE)
+#define Q_DECLARE_METATYPE_IMPL(TYPE) \
+    QT_BEGIN_NAMESPACE                \
+    template <>                       \
+    struct QMetaTypeId<TYPE>          \
+    {                                 \
+        enum{ Defined = 1 };          \
+        static int qt_metatype_id()   \
+        {                             \
+            static QBasicAtomicInt metatype_id = Q_BASIC_ATOMIC_INITIALIZER(0); \
+            if (const int id = metatype_id.loadAcquire()) {                     \
+                return id;                          \
+            }                         \
+            const auto arr = QtPrivate::typenameHelper<TYPE>();                 \
+            auto name = arr.data();   \
+            if (QByteArrayView(name) == (#TYPE)) {                              \
+                const int id = qRegisterNormalizedMetaType<TYPE>(name);         \
+                metatype_id.storeRelease(id);                                   \
+                return id; \
+            }                         \
+            else {                    \
+                assert(false);        \
+                return 0; \
+            } \
+        } \
+    }; \
+    QT_END_NAMESPACE                  \
+
+#endif //Q_MOC_RUN
 
 //注册builtin类型
 #define Q_DECLARE_BUILTIN_METATYPE(TYPE, METATYPEID, NAME) \
@@ -272,12 +382,8 @@ inline constexpr int qMetaTypeId()
         return QMetaTypeId2<T>::MetaType;
     }
     else {
-        Q_ASSERT(false);
-        return -1;
+        return QMetaType::fromType<T>().id();
     }
-//    else {
-//        return QMetaType::fromType<T>().id();
-//    }
 }
 
 #undef QT_DEFINE_METATYPE_ID

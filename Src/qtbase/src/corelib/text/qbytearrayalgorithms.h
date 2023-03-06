@@ -10,6 +10,10 @@
 
 QT_BEGIN_NAMESPACE
 
+class QByteArrayView;
+namespace QtPrivate {
+}
+
 //复制char *数组，会开辟新的空间
 char *qstrdup(const char *);
 
@@ -18,6 +22,11 @@ char *qstrcpy(char *dst, const char *src);
 
 //格式化字符串
 int qvsnprintf(char *str, size_t n, const char *fmt, va_list ap);
+
+namespace QtPrivate
+{
+    int compareMemory(QByteArrayView lhs, QByteArrayView rhs);
+}
 
 QT_END_NAMESPACE
 

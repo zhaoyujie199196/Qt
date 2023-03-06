@@ -201,7 +201,7 @@ QT_END_NAMESPACE
 #define Q_ALWAYS_INLINE __forceinline
 #elif defined(Q_CC_GNU)
 #define Q_NEVER_INLINE __attribute((noinline))
-#define Q_ALWAYS_INLINE inline __attribue__((always_inline))
+#define Q_ALWAYS_INLINE inline __attribute__((always_inline))
 #else
 #define Q_NEVER_INLINE
 #define Q_ALWAYS_INLINE inline
@@ -214,5 +214,7 @@ QT_END_NAMESPACE
 
 void qt_assert(const char *assertion, const char *file, int line) noexcept;
 void qt_assert_x(const char *where, const char *what, const char *file, int line) noexcept;
+
+#define Q_UNUSED(x) (void)x;
 
 #endif //QGLOBAL_H

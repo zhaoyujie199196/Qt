@@ -85,6 +85,10 @@ public:                                      \
     };\
 };
 
+#define Q_DECLARE_TYPEINFO(TYPE, FLAGS) \
+template <>                             \
+Q_DECLARE_TYPEINFO_BODY(TYPE, FLAGS)
+
 QT_END_NAMESPACE
 
 #endif //QTYPEINFO_H

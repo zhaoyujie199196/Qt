@@ -9,6 +9,10 @@
 
 QT_BEGIN_NAMESPACE
 
+/*
+ * unicode编码使用ucs4能完全表示，但是ucs2覆盖了大部分，所以一般编码使用char16_t表示，以解决内存
+ * */
+
 struct QLatin1Char
 {
 public:
@@ -448,6 +452,11 @@ public:
     inline bool isSpace() const noexcept {return QChar::isSpace(ucs);}
     inline bool isTitleCase() const noexcept {return QChar::isTitleCase(ucs);}
 
+    constexpr inline bool isNonCharacter() const noexcept {return QChar::isNonCharacter(ucs);}
+    constexpr inline bool isHighSurrogate() const noexcept {return QChar::isHighSurrogate(ucs);}
+    constexpr inline bool isLowSurrogate() const noexcept {return QChar::isLowSurrogate(ucs);}
+    constexpr inline bool isSurrogate() const noexcept {return QChar::isSurrogate(ucs);}
+
     static Category category(char32_t ucs4) noexcept Q_DECL_CONST_FUNCTION;
     static Direction direction(char32_t ucs4) noexcept Q_DECL_CONST_FUNCTION;
     static JoiningType joiningType(char32_t ucs4) noexcept Q_DECL_CONST_FUNCTION;
@@ -471,6 +480,34 @@ public:
 
     static char32_t mirroredChar(char32_t ucs4) noexcept Q_DECL_CONST_FUNCTION;
     static bool hasMirrored(char32_t ucs4) noexcept Q_DECL_CONST_FUNCTION;
+
+    static constexpr inline bool isNonCharacter(char32_t ucs4) noexcept {
+        return ucs4 >= 0xfdd0 && (ucs4 <= 0xfdef || (ucs4 & 0xfffe) == 0xfffe);
+    }
+    static constexpr inline bool isHighSurrogate(char32_t ucs4) noexcept {
+        return (ucs4 & 0xfffffc00) == 0xd800;
+    }
+    static constexpr inline bool isLowSurrogate(char32_t ucs4) noexcept {
+        return (ucs4 & 0xfffffc00) == 0xdc00;
+    }
+    static constexpr inline bool isSurrogate(char32_t ucs4) noexcept {
+        return (ucs4 - 0xd800u < 2048u);
+    }
+    static constexpr inline bool requiresSurrogates(char32_t ucs4) noexcept {
+        return (ucs4 >= 0x10000);
+    }
+    static constexpr inline char32_t surrogateToUcs4(char16_t high, char16_t low) noexcept {
+        return char32_t(high)<<10 + low - 0x35fdc00;
+    }
+    static constexpr inline char32_t surrogateToUcs4(QChar high, QChar low) noexcept {
+        return surrogateToUcs4(high.unicode(), low.unicode());
+    }
+    static constexpr inline char16_t highSurrogate(char32_t ucs4) noexcept {
+        return char16_t((ucs4>>10) + 0xd7c0);
+    }
+    static constexpr inline char16_t lowSurrogate(char32_t ucs4) noexcept {
+        return char16_t(ucs4 % 0x400 + 0xdc00);
+    }
 
     static UnicodeVersion unicodeVersion(char32_t ucs4) noexcept Q_DECL_CONST_FUNCTION;
     static Decomposition decompositionTag(char32_t ucs4) noexcept Q_DECL_CONST_FUNCTION;

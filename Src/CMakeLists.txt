@@ -18,6 +18,9 @@ PROJECT(Qt
         LANGUAGES CXX C ASM
         )
 
+#moc环境宏
+#ADD_DEFINITIONS(-DQ_MOC_RUN=ON)
+
 #添加main.cpp用作测试
 ADD_EXECUTABLE(Qt ${CMAKE_CURRENT_SOURCE_DIR}/main.cpp)
 #添加头文件搜索路径

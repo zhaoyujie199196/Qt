@@ -24,6 +24,35 @@ enum {
     Hangul_SCount = Hangul_LCount * Hangul_NCount
 };
 
+template<typename T>
+static inline T convertCase_helper(T uc, QUnicodeTables::Case which) noexcept {
+    const auto fold = qGetProp(uc)->cases[which];
+    if (Q_UNLIKELY(fold.special)) {
+        const ushort *specialCase = specialCaseMap + fold.diff;
+        // so far, there are no special cases beyond BMP (guaranteed by the qunicodetables generator)
+        return *specialCase == 1 ? specialCase[1] : uc;
+    }
+
+    return uc + fold.diff;
+}
+
+static inline char32_t foldCase(const char16_t *ch, const char16_t *start) {
+    char32_t ucs4 = *ch;
+    if (QChar::isLowSurrogate(ucs4) && ch > start && QChar::isHighSurrogate(*(ch - 1))) {
+        ucs4 = QChar::surrogateToUcs4(*(ch - 1), ucs4);
+    }
+    return convertCase_helper(ucs4, QUnicodeTables::CaseFold);
+}
+
+static inline char32_t foldCase(char32_t ch, char32_t &last) noexcept {
+    char32_t ucs4 = ch;
+    if (QChar::isLowSurrogate(ucs4) && QChar::isHighSurrogate(last)) {
+        ucs4 = QChar::surrogateToUcs4(last, ucs4);
+    }
+    last = ch;
+    return convertCase_helper(ucs4, QUnicodeTables::CaseFold);
+}
+
 bool QChar::compare(QChar c) const noexcept {
     if (ucs < c.ucs) {
         return -1;
@@ -34,17 +63,6 @@ bool QChar::compare(QChar c) const noexcept {
     else {
         return 1;
     }
-}
-
-template <class T>
-Q_DECL_CONST_FUNCTION static inline T convertCase_helper(T uc, QUnicodeTables::Case which) noexcept
-{
-    const auto fold = qGetProp(uc)->cases[which];
-    if (Q_UNLIKELY(fold.special)) {
-        const ushort *specialCase = specialCaseMap + fold.diff;
-        return *specialCase == 1 ? specialCase[1] : uc;
-    }
-    return uc + fold.diff;
 }
 
 QChar::Category QChar::category(char32_t ucs4) noexcept {

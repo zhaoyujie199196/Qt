@@ -1,3 +1,2 @@
-message("QtBase/tests/CMakeLists begin")
+include(../cmake/QtTestHelper.cmake)
 add_subdirectory(auto)
-message("QtBase/tests/CMakeLists finish")

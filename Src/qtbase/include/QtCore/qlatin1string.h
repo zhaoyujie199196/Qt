@@ -1,0 +1,1 @@
+#include "../../src/corelib/text/qlatin1string.h"

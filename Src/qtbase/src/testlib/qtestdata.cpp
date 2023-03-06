@@ -7,6 +7,7 @@
 #include <QtCore/qbytearray.h>
 #include <QtTest/qtestassert.h>
 #include <QtCore/QMetaType>
+#include <QtCore/qlatin1string.h>
 
 QT_BEGIN_NAMESPACE
 

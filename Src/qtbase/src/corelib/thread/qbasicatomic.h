@@ -31,7 +31,7 @@ public:
 
 
     T loadRelaxed() const noexcept {return Ops::loadRelaxed(_q_value);}
-    void storeRelaxed(T newValue) noexcept {Ops::storeRelaxed(newValue);}
+    void storeRelaxed(T newValue) noexcept {Ops::storeRelaxed(_q_value, newValue);}
 
     T loadAcquire() const noexcept {return Ops::loadAcquire(_q_value);}
     void storeRelease(const T &newValue) noexcept {Ops::storeRelease(_q_value, newValue);}
