@@ -2,6 +2,7 @@
 #define QTEST_H
 
 #include <QtTest/qtestcase.h>
+#include <iostream>
 
 QT_BEGIN_NAMESPACE
 

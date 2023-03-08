@@ -33,7 +33,7 @@ class QTypeInfo {
 public:
     enum {
         isPointer = std::is_pointer_v<T>,  //是否是指针类型
-        isIntegral = std::is_integral_v<T>, //是否是证书类型
+        isIntegral = std::is_integral_v<T>,
         isComplex = !std::is_trivial_v<T>, //是否是平凡类型
         isRelocatable = qIsRelocatable<T>  //是否可重定位
     };
@@ -48,6 +48,17 @@ public:
         isComplex = false,
         isRelocatable = false
     };
+};
+
+template <class T, class ...Ts>
+class QTypeInfoMerger
+{
+    static_assert(sizeof...(Ts) > 0);
+public:
+    static constexpr bool isComplex = ((QTypeInfo<Ts>::isComplex) || ...);
+    static constexpr bool isRelocatable = ((QTypeInfo<Ts>::isRelocatable) && ...);
+    static constexpr bool isPointer = false;
+    static constexpr bool isIntegral = false;
 };
 
 #define Q_DECLARE_MOVABLE_CONTAINER(CONTAINER) \
@@ -88,6 +99,14 @@ public:                                      \
 #define Q_DECLARE_TYPEINFO(TYPE, FLAGS) \
 template <>                             \
 Q_DECLARE_TYPEINFO_BODY(TYPE, FLAGS)
+
+//前置声明
+template <typename T>
+class QFlags;
+//对QFLags做特化模板
+template <typename T>
+Q_DECLARE_TYPEINFO_BODY(QFlags<T>, Q_PRIMITIVE_TYPE)
+
 
 QT_END_NAMESPACE
 

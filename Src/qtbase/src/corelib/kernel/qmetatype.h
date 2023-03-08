@@ -309,7 +309,7 @@ struct QMetaTypeId2<const T&> : QMetaTypeId2<T> {
 
 template <typename T>
 struct QMetaTypeId2<T &> : QMetaTypeId2<T> {
-    enum {Defined = false };
+    enum {Defined = 0 }; //通过traits技巧用以判断是否被定义
 };
 
 template <typename T>

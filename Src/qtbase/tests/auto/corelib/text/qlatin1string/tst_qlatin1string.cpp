@@ -8,6 +8,12 @@
 #include <QObject>
 #include <QtCore/QByteArrayView>
 
+struct QLatin1StringContainer {
+    QLatin1String l1;
+};
+Q_DECLARE_TYPEINFO(QLatin1StringContainer, Q_RELOCATABLE_TYPE)
+Q_DECLARE_METATYPE(QLatin1StringContainer)
+
 class tst_QLatin1String : public QObject {
 public:
     using QObject::QObject;
@@ -95,13 +101,6 @@ void tst_QLatin1String::iterators() {
     QVERIFY(std::equal(hello.begin(), hello.end(), olleh.rbegin()));
 }
 
-struct QLatin1StringContainer {
-    QLatin1String l1;
-};
-
-Q_DECLARE_TYPEINFO(QLatin1StringContainer, Q_RELOCATABLE_TYPE)
-Q_DECLARE_METATYPE(QLatin1StringContainer)
-
 void tst_QLatin1String::relationalOperators_data() {
     QTest::addColumn<QLatin1StringContainer>("lhs");
     QTest::addColumn<int>("lhsOrderNumber");
@@ -140,10 +139,6 @@ void tst_QLatin1String::relationalOperators() {
 #define CHECK(op) \
     QCOMPARE(lhs.l1 op rhs.l1, lhsOrderNumber op rhsOrderNumber) \
     /*end*/
-
-    if (;lhsOrderNumber == 0 && rhsOrderNumber == 1) {
-        QCOMPARE(lhs.l1 < rhs.l1, lhsOrderNumber < rhsOrderNumber);
-    }
 
     CHECK(==);
     CHECK(!=);

@@ -10,6 +10,13 @@
 
 QT_BEGIN_NAMESPACE
 
+class QByteArray
+{
+public:
+
+private:
+    static const char _empty;
+};
 
 
 QT_END_NAMESPACE

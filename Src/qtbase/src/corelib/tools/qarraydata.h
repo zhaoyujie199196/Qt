@@ -9,6 +9,22 @@
 
 QT_BEGIN_NAMESPACE
 
+struct QArrayData
+{
+    enum AllocationOption {
+        Grow,
+        KeepSize
+    };
+    enum GrowthPosition {
+        GrowsAtEnd,
+        GrowsAtBeginning
+    };
+    enum ArrayOption {
+        ArrayOptionDefault = 0,
+        CapacityReserved = 0x1
+    };
+};
+
 namespace QtPrivate {
     struct QContainerImplHelper {
         enum CutResult {
