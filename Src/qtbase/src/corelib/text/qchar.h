@@ -497,7 +497,7 @@ public:
         return (ucs4 >= 0x10000);
     }
     static constexpr inline char32_t surrogateToUcs4(char16_t high, char16_t low) noexcept {
-        return char32_t(high)<<10 + low - 0x35fdc00;
+        return (char32_t(high)<<10) + low - 0x35fdc00;
     }
     static constexpr inline char32_t surrogateToUcs4(QChar high, QChar low) noexcept {
         return surrogateToUcs4(high.unicode(), low.unicode());

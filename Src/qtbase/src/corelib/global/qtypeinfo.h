@@ -6,12 +6,26 @@
 #define QTYPEINFO_H
 
 #include <QtCore/qglobal.h>
+#include <tuple>
+#include <variant>
 
 
 QT_BEGIN_NAMESPACE
 
 /*
- * 这段代码定义了一个inline constexpr布尔变量qIsRelocatable，它使用了C++标准库中的两个类型特征std::is_trivially_copyable_v和std::is_trivially_destructible_v来确定一个类型T是否是可重定位的。
+ * isComplex: 是否为复杂类型
+ * 如果一个类型是复杂类型，他的对象在创建和销毁是需要调用相应的成员函数来完成对象的构造与析构
+ * 复杂类型通常是指包含有构造函数、析构函数、拷贝构造函数、移动构造函数等成员函数的类型
+ * */
+
+/*
+ * isRelocatable: 是否可重定位
+ * 可重定位类型是指对象在被移动到不同的内存地址时，其数据成员不会受到影响
+ * 如果一个类型是可重定位的，那么其对象可以被移动到不同的内存地址而不需要进行任何特殊处理。
+ * */
+
+/*
+ * 定义inline constexpr布尔变量qIsRelocatable，使用两个类型特征std::is_trivially_copyable_v和std::is_trivially_destructible_v来确定一个类型T是否是可重定位的。
    可重定位类型是指可以在内存中安全地移动而不需要任何特殊处理或引起未定义行为的类型。换句话说，如果一个类型是可重定位的，它可以在内存中高效地移动，例如通过被移动或复制到内存中的不同位置。
    qIsRelocatable的定义检查类型T是否同时是平凡复制和平凡析构的。如果一个类型是平凡复制的，那么它的复制构造函数和复制赋值运算符是平凡的，这意味着它们进行对象的位拷贝。如果一个类型是平凡析构的，那么它的析构函数是平凡的，这意味着它什么都不做。
    如果T同时满足平凡复制和平凡析构的条件，那么qIsRelocatable将是true。这意味着T被认为是可重定位的，可以在内存中安全地移动。如果这两个条件中有任何一个不满足，qIsRelocatable将是false，表示T被认为是不可重定位的。
@@ -33,8 +47,8 @@ class QTypeInfo {
 public:
     enum {
         isPointer = std::is_pointer_v<T>,  //是否是指针类型
-        isIntegral = std::is_integral_v<T>,
-        isComplex = !std::is_trivial_v<T>, //是否是平凡类型
+        isIntegral = std::is_integral_v<T>,  //是否是数值类型
+        isComplex = !std::is_trivial_v<T>,  //是否是平凡类型
         isRelocatable = qIsRelocatable<T>  //是否可重定位
     };
 };
@@ -65,12 +79,12 @@ public:
 template <typename ...T>                       \
 class QTypeInfo<CONTAINER<T...>>               \
 {                                              \
-public:                                    \
+public:                                        \
     enum {                                     \
         isPointer = false,                     \
         isIntegral = false,                    \
         isComplex = true,                      \
-        isRelocatable = true\
+        isRelocatable = true                   \
     };                                         \
 };
 
@@ -106,6 +120,83 @@ class QFlags;
 //对QFLags做特化模板
 template <typename T>
 Q_DECLARE_TYPEINFO_BODY(QFlags<T>, Q_PRIMITIVE_TYPE)
+
+namespace QTypeTraits
+{
+    namespace detail {
+        template <typename, typename = void>
+        struct is_container : std::false_type {};
+        template <typename T>
+        struct is_container<T, std::void_t<
+                typename T::value_type,
+                std::is_convertible<decltype(std::declval<T>().begin() != std::declval<T>().end()), bool>
+                >> : std::true_type {};
+
+        //是否有 < 操作符
+        template <typename, typename = void>
+        struct has_operator_less_than : std::false_type {};
+        template <typename T>
+        struct has_operator_less_than<T, std::void_t<decltype(bool(std::declval<const T &>() < std::declval<const T &>()))>>
+                : std::true_type {};
+        template <typename T, bool = is_container<T>::value>
+        struct expand_operator_less_than_container;
+        template <typename T>
+        struct expand_operator_less_than_tuple;
+
+        template <typename T>
+        using expand_operator_less_than = expand_operator_less_than_container<T>;
+
+        template <typename T, bool>
+        struct expand_operator_less_than_container : expand_operator_less_than_tuple<T> {};
+        template <typename T>
+        struct expand_operator_less_than_container<T, true> : std::conjunction <
+                std::disjunction <
+                    std::is_same<T, typename T::value_type>,
+                    expand_operator_less_than<typename T::value_type>
+                >, expand_operator_less_than_tuple<T>
+                > {};
+        template <typename ...T>
+        using expand_operator_less_than_recursive = std::conjunction<expand_operator_less_than<T>...>;
+        template <typename T>
+        struct expand_operator_less_than_tuple : has_operator_less_than<T> {};
+        template <typename T1, typename T2>
+        struct expand_operator_less_than_tuple<std::pair<T1, T2>> : expand_operator_less_than_recursive<T1, T2> {};
+        template <typename ...T>
+        struct expand_operator_less_than_tuple<std::tuple<T...>> : expand_operator_less_than_recursive<T...> {};
+        template <typename ...T>
+        struct expand_operator_less_than_tuple<std::variant<T...>> : expand_operator_less_than_recursive<T...> {};
+    }
+    //struct TestOpeartorEqual {
+    //    friend inline bool operator==(const TestOpeartorEqual &lhs, const TestOpeartorEqual &rhs) {
+    //        return true;
+    //    }
+    //};
+    //TestOpeartorEqual中写了operator==, 编译通过，没有重写，编译失败
+    //qDebug()<<bool(std::declval<const TestOpeartorEqual &>() == std::declval<const TestOpeartorEqual &>());
+
+    //是否含有operator== 操作符号
+    template <typename , typename = void>
+    struct has_operator_equal : std::false_type {};
+    template <typename T>
+    struct has_operator_equal<T, std::void_t<decltype(bool(std::declval<const T &>() == std::declval<const T &>()))>> : std::true_type {};
+
+    template <typename T>
+    struct has_operator_less_than : detail::expand_operator_less_than<T> {};
+    template <typename T>
+    inline constexpr bool has_operator_less_than_v = has_operator_less_than<T>::value;
+
+    template <typename Container, typename T>
+    using has_operator_equal_container = std::disjunction<std::is_base_of<Container, T>, QTypeTraits::has_operator_equal<T>>;
+
+    template <typename Container, typename ...T>
+    using compare_eq_result_container = std::enable_if_t<std::conjunction_v<QTypeTraits::has_operator_equal_container<Container, T>...>, bool>;
+
+    template <typename Container, typename T>
+    using has_operator_less_than_container = std::disjunction<std::is_base_of<Container, T>, QTypeTraits::has_operator_less_than<T>>;
+
+    template <typename Container, typename ...T>
+    using compare_lt_result_container = std::enable_if_t<std::conjunction_v<QTypeTraits::has_operator_less_than_container<Container, T>...>, bool>;
+}
 
 
 QT_END_NAMESPACE

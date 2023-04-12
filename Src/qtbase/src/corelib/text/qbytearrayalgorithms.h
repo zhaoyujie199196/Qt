@@ -22,6 +22,7 @@ char *qstrcpy(char *dst, const char *src);
 
 //格式化字符串
 int qvsnprintf(char *str, size_t n, const char *fmt, va_list ap);
+int qnsprintf(char *str, size_t n, const char *fmt, ...);
 
 namespace QtPrivate
 {

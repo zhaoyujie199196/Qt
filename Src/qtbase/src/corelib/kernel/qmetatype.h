@@ -8,6 +8,7 @@
 #include <QtCore/qglobal.h>
 #include <QtCore/qchar.h>
 #include <QtCore/qatomic.h>
+#include <QtCore/qbytearrayview.h>
 #include <array>
 #include <string>
 #include <string_view>

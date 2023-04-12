@@ -71,7 +71,7 @@ public:
 
     }
 
-    QForeachContainer(T && t)
+    QForeachContainer(T &&t)
         : c(std::move(t))
         , i(qAsConst(c).begin())
         , e(qAsConst(c).end()) {
@@ -102,6 +102,10 @@ template <typename T, typename = decltype(std::declval<T>.detach())>
 inline void warnIfContainerIsNotShared(int) {}
 
 template <typename T>
+inline void warnIfContainerIsNotShared(...) {}
+
+//std::decay<T> 为T应用左值到右值，数组到指针，函数指针的隐式转换，转换将移除类型T的cv限定符
+template <typename T>
 QForeachContainer<typename std::decay<T>::type> qMakeForeachContainer(T &&t)
 {
     warnIfContainerIsNotShared<typename std::decay<T>::type>(0);
@@ -110,8 +114,8 @@ QForeachContainer<typename std::decay<T>::type> qMakeForeachContainer(T &&t)
 }
 
 #define Q_FOREACH(variable, container) \
-for (auto  _container_ = QtPrivate::qMakeForeachContainer(container)); _container_.i != _container_.e; ++_container_i) \
-    if (variable = *_container_.i; false) {                                                                            \
+for (auto  _container_ = QtPrivate::qMakeForeachContainer(container); _container_.i != _container_.e; ++_container_.i) \
+    if (variable = *_container_.i; false) {                                                                             \
     }                                  \
     else
 
@@ -216,5 +220,38 @@ void qt_assert(const char *assertion, const char *file, int line) noexcept;
 void qt_assert_x(const char *where, const char *what, const char *file, int line) noexcept;
 
 #define Q_UNUSED(x) (void)x;
+
+#define QT_MOVE_ASSIGNMENT_OPERATOR_IMPL_VIA_MOVE_AND_SWAP(Class) \
+    Class &operator=(Class &&other) noexcept {                    \
+        Class moved(std::move(other));                            \
+        swap(moved);                                              \
+        return *this;                                             \
+    }
+
+#define QT_MOVE_ASSIGNMENT_OPERATOR_IMPL_VIA_PURE_SWAP(Class) \
+    Class &operatpr=(Class &&other) noexcept {               \
+        swap(other);                                         \
+        return *this;                                        \
+    }
+
+template <typename T>
+inline void qSwap(T &value1, T &value2)
+{
+    using std::swap;
+    swap(value1, value2);
+}
+
+void qt_check_pointer(const char *, int) noexcept;
+
+#define Q_CHECK_PTR(p) do { if (!(p)) qt_check_pointer(__FILE__, __LINE__); } while(false)
+
+template <typename T>
+constexpr inline const T &qMin(const T &a, const T &b) { return (a < b) ? a : b; }
+template <typename T>
+constexpr inline const T &qMax(const T &a, const T &b) { return (a < b) ? b : a; }
+template <typename T>
+//Bound: 边界
+constexpr inline const T &qBound(const T &min, const T &val, const T &max)
+{ return qMax(min, qMin(max, val)); }
 
 #endif //QGLOBAL_H

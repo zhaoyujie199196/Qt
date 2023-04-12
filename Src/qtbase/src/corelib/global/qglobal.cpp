@@ -12,3 +12,9 @@ void qt_assert_x(const char *where, const char *what, const char *file, int line
     std::cout<<"Failed : "<< where <<"  " << what << " in File : " << file << " At Line "<<line<<std::endl;
     assert(false);
 }
+
+void qt_check_pointer(const char *, int) noexcept
+{
+    Q_ASSERT(false);
+    std::terminate();
+}

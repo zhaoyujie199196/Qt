@@ -13,6 +13,14 @@ QT_BEGIN_NAMESPACE
 class QByteArray
 {
 public:
+    typedef qsizetype size_type;
+    typedef qptrdiff difference_type;
+    typedef const char & const_reference;
+    typedef char &reference;
+    typedef char *pointer;
+    typedef const char *const_pointer;
+    typedef char value_type;
+
 
 private:
     static const char _empty;
