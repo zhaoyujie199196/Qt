@@ -229,7 +229,7 @@ void qt_assert_x(const char *where, const char *what, const char *file, int line
     }
 
 #define QT_MOVE_ASSIGNMENT_OPERATOR_IMPL_VIA_PURE_SWAP(Class) \
-    Class &operatpr=(Class &&other) noexcept {               \
+    Class &operator=(Class &&other) noexcept {               \
         swap(other);                                         \
         return *this;                                        \
     }
@@ -245,12 +245,48 @@ void qt_check_pointer(const char *, int) noexcept;
 
 #define Q_CHECK_PTR(p) do { if (!(p)) qt_check_pointer(__FILE__, __LINE__); } while(false)
 
+namespace QTypeTraits {
+    namespace detail {
+        template <typename T, typename U,
+                typename = std::enable_if_t<std::is_arithmetic_v<T> && std::is_arithmetic_v<U> &&
+                        std::is_floating_point_v<T> == std::is_floating_point_v<U> &&
+                                std::is_signed_v<T> == std::is_signed_v<U> &&
+                                        !std::is_same_v<T, bool> && !std::is_same_v<U, bool> &&
+                                                !std::is_same_v<T, char> && !std::is_same_v<U, char>>>
+                                                struct Promoted
+                                                {
+                                                    using type = decltype(T() + U());
+                                                };
+
+    };
+    template <typename T, typename U>
+    using Promoted = typename detail::Promoted<T, U>::type;
+}
+
 template <typename T>
 constexpr inline const T &qMin(const T &a, const T &b) { return (a < b) ? a : b; }
+template <typename T, typename U>
+const inline QTypeTraits::Promoted<T, U> qMin(const T &a, const U &b)
+{
+    using P = QTypeTraits::Promoted<T, U>;
+    P _a = a;
+    P _b = b;
+    return (_a < _b) ? _a : _b;
+}
+
 template <typename T>
 constexpr inline const T &qMax(const T &a, const T &b) { return (a < b) ? b : a; }
-template <typename T>
+template <typename T, typename U>
+constexpr inline QTypeTraits::Promoted<T, U> qMax(const T &a, const U &b)
+{
+    using P = QTypeTraits::Promoted<T, U>;
+    P _a = a;
+    P _b = b;
+    return (_a < _b) ? _b : _a;
+}
+
 //Bound: 边界
+template <typename T>
 constexpr inline const T &qBound(const T &min, const T &val, const T &max)
 { return qMax(min, qMin(max, val)); }
 

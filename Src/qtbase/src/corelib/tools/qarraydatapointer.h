@@ -181,6 +181,11 @@ public:
     qsizetype allocatedCapacity() noexcept { return d ? d->allocatedCapacity() : 0; }
     qsizetype constAllocatedCapacity() const noexcept {return d ? d->constAllocatedCapacity() : 0; }
 
+    static QArrayDataPointer fromRawData(const T *rawData, qsizetype length) noexcept
+    {
+        Q_ASSERT(rawData || !length);
+        return { nullptr, const_cast<T *>(rawData), length };
+    }
 
     Q_NEVER_INLINE void reallocateAndGrow(QArrayData::GrowthPosition where, qsizetype n, QArrayDataPointer *old = nullptr)
     {

@@ -10,7 +10,7 @@
 
 QT_BEGIN_NAMESPACE
 
-namespace Qt{
+namespace Qt {
     //大小写敏感
     enum CaseSensitivity {
         CaseInsensitive,
@@ -75,6 +75,11 @@ namespace Qt{
 
     Q_DECLARE_FLAGS(Alignment, AlignmentFlag)
     Q_DECLARE_OPERATORS_FOR_FLAGS(Alignment)
+
+    enum class Initialization {
+        Uninitialized
+    };
+    inline constexpr Initialization Uninitialized = Initialization::Uninitialized;
 }
 
 QT_END_NAMESPACE

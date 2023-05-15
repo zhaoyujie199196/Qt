@@ -426,4 +426,8 @@
 #  error "Qt has not been tested with this compiler - see http://www.qt-project.org/"
 #endif
 
+#ifndef QT_MAKE_CHECKED_ARRAY_ITERATOR
+#  define QT_MAKE_CHECKED_ARRAY_ITERATOR(x, N) (x)
+#endif
+
 #endif //QCOMPILERDETECTION_H

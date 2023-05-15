@@ -1,0 +1,1 @@
+qt_add_test_helper(TST_QBYTEARRAYVIEW ${CMAKE_CURRENT_SOURCE_DIR}/tst_qbytearrayview.cpp)
