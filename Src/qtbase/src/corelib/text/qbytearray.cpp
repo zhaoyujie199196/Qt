@@ -3,6 +3,8 @@
 //
 #include "qbytearray.h"
 #include "qstringalgorithms_p.h"
+#include "qlocale_p.h"
+#include "QtCore/qvarlengtharray.h"
 
 QT_BEGIN_NAMESPACE
 
@@ -209,7 +211,6 @@ QByteArray QByteArray::right(qsizetype len) const
 
 QByteArray QByteArray::mid(qsizetype pos, qsizetype len) const
 {
-    Q_ASSERT(false);
     qsizetype p = pos;
     qsizetype l = len;
     using namespace QtPrivate;
@@ -346,7 +347,7 @@ QByteArray QByteArray::simplified_helper(QByteArray &a) {
 QByteArray QByteArray::leftJustified(qsizetype width, char fill, bool truncate) const {
     QByteArray result;
     qsizetype len = size();
-    qsizetype  padlen = width - len;
+    qsizetype padlen = width - len;
     if (padlen > 0) {
         result.resize(len + padlen);
         if (len) {
@@ -388,7 +389,7 @@ QByteArray QByteArray::rightJustified(qsizetype width, char fill, bool truncate)
 }
 
 QByteArray &QByteArray::prepend(const QByteArray &ba) {
-    Q_ASSERT(false); //zhaoyujie TODO 这个if判断是啥意思。。。
+    //zhaoyujie TODO 为了提升效率？
     if (size() == 0 && ba.size() > d.constAllocatedCapacity() && ba.d.isMutable()) {
         return (*this = ba);
     }
@@ -397,7 +398,7 @@ QByteArray &QByteArray::prepend(const QByteArray &ba) {
 
 QByteArray &QByteArray::append(const QByteArray &ba)
 {
-    Q_ASSERT(false);
+    //zhaoyujie TODO 为了提升效率？
     if (size() == 0 && ba.size() > d->freeSpaceAtEnd() && ba.d.isMutable()) {
         return (*this = ba);
     }
@@ -416,8 +417,9 @@ QByteArray &QByteArray::insert(qsizetype i, qsizetype count, char ch)
     if (i < 0 || count <= 0) {  //插入位置检测
         return *this;
     }
-    Q_ASSERT(false); //QList插入位置超出了size是怎么处理的？
-    if (i >= d->size) { //插入位置 > size, 中间的补空格
+    if (i >= d->size) {
+        //插入位置 > size, 中间的补空格
+        //QList中的处理不允许超出范围
         d.detachAndGrow(Data::GrowsAtEnd, (i - d.size) + count, nullptr, nullptr);
         Q_CHECK_PTR(d.data());
         d->copyAppend(i - d->size, ' ');
@@ -450,9 +452,9 @@ QByteArray &QByteArray::insert(qsizetype i, QByteArrayView data)
         return *this;
     }
     if (!d->needsDetach() && QtPrivate::q_points_into_range(str, d.data(), d.data() + d.size)) {
-        Q_ASSERT(false);  //zhaoyujie TODO 需要插入的内容会被部分覆盖
-//        QVarLengthArray a(str, str + size);
-//        return insert(i, a);
+       // 需要插入的内容会被部分覆盖
+        QVarLengthArray<char> a(str, str + size);
+        return insert(i, a);
         return *this;
     }
     else {
@@ -474,5 +476,130 @@ QByteArray &QByteArray::remove(qsizetype pos, qsizetype len) {
     d.data()[d.size] = '\0';
     return *this;
 }
+
+QByteArray &QByteArray::setNum(short n, int base)
+{
+    return setNum(qlonglong(n), base);
+}
+
+QByteArray &QByteArray::setNum(ushort n, int base)
+{
+    return setNum(qulonglong(n), base);
+}
+
+QByteArray &QByteArray::setNum(int n, int base)
+{
+    return setNum(qlonglong(n), base);
+}
+
+QByteArray &QByteArray::setNum(uint n, int base)
+{
+    return setNum(qulonglong(n), base);
+}
+
+QByteArray &QByteArray::setNum(long n, int base)
+{
+    return setNum(qlonglong(n), base);
+}
+
+QByteArray &QByteArray::setNum(ulong n, int base)
+{
+    return setNum(qlonglong(n), base);
+}
+
+static char *qulltoa2(char *p, qulonglong n, int base)
+{
+    if (base < 2 || base > 36)  //超过36，字母表示不了
+    {
+        Q_ASSERT(false);
+        base = 10;
+    }
+    const char b = 'a' - 10;
+    do {
+        const int c = n % base;
+        n /= base;
+        *--p = c + (c < 10 ? '0' : b); //<0,以'0'为基准，>=0的部分，以'a'为基准
+    }while (n);
+    return p;
+}
+
+QByteArray &QByteArray::setNum(qlonglong n, int base)
+{
+    const int buffsize = 66; //66位足够了
+    char buff[buffsize];
+    char *p;
+    if (n < 0) {
+        //zhaoyujie TODO 为什么这个取负运算这么复杂？防止最大负数直接取负导致溢出吗
+        p = qulltoa2(buff + buffsize, qulonglong(-(1 + n)) + 1, base);
+        *--p = '-';
+    }
+    else {
+        p= qulltoa2(buff + buffsize, qulonglong(n), base);
+    }
+    clear();
+    append(p, buffsize - (p - buff));
+    return *this;
+}
+
+QByteArray &QByteArray::setNum(qulonglong n, int base)
+{
+    const int buffsize = 66;
+    char buff[buffsize];
+    char *p = qulltoa2(buff + buffsize, n, base);
+
+    clear();
+    append(p, buffsize - (p - buff));
+    return *this;
+}
+
+QByteArray &QByteArray::setNum(float n, char format, int precision)
+{
+    return setNum(double(n), format, precision);
+}
+
+QByteArray &QByteArray::setNum(double n, char format, int precision)
+{
+    Q_ASSERT(false);
+    return *this;
+//    QLocaleData::DoubleForm form = QLocaleData::DFDecimal;
+//    uint flags = QLocaleData::ZeroPadExponent;
+//
+//    char lower = asciiLower(uchar(format));
+//
+//    if (format != lower) {  //zhaoyjjie TODO 啥意思。。。
+//        flags |= QLocaleData::CapitalEorX;
+//    }
+//
+//    switch (lower) {
+//        case 'f':
+//            form = QLocaleData::DFDecimal;
+//            break;
+//        case 'e':
+//            form = QLocaleData::DFExponent;
+//            break;
+//        case 'g':
+//            form = QLocaleData::DFSignificantDigits;
+//            break;
+//        default:
+//            Q_ASSERT(false);
+//            break;
+//    }
+//    *this = QLocaleData::c()->doubleToString(n, precision, form, -1, flags).toUtf8();
+//    return *this;
+}
+
+QList<QByteArray> QByteArray::split(char sep) const
+{
+    QList<QByteArray> list;
+    qsizetype start = 0;
+    qsizetype end;
+    while ((end = indexOf(sep, start)) != -1) {
+        list.append(mid(start, end - start));
+        start = end + 1;
+    }
+    list.append(mid(start));
+    return list;
+}
+
 
 QT_END_NAMESPACE

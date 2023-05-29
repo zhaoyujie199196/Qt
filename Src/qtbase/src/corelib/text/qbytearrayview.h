@@ -302,6 +302,11 @@ inline int QByteArrayView::compare(QByteArrayView a, Qt::CaseSensitivity cs) con
     }
 }
 
+inline quint16 qChecksum(const char *s, qsizetype len, Qt::ChecksumType standard = Qt::ChecksumIso3309)
+{
+    return qChecksum(QByteArrayView(s, len), standard);
+}
+
 QT_END_NAMESPACE
 
 #endif //QBYTEARRAYVIEW_H

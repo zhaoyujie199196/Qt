@@ -216,6 +216,10 @@ QT_END_NAMESPACE
 #define QT_WARNING_POP
 #define QT_WARNING_DISABLE_MSVC(number)
 
+#define QT_TRY try
+#define QT_CATCH(A) catch(A)
+#define QT_THROW(A) throw A
+
 void qt_assert(const char *assertion, const char *file, int line) noexcept;
 void qt_assert_x(const char *where, const char *what, const char *file, int line) noexcept;
 

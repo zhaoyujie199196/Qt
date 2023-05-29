@@ -121,6 +121,18 @@ class QFlags;
 template <typename T>
 Q_DECLARE_TYPEINFO_BODY(QFlags<T>, Q_PRIMITIVE_TYPE)
 
+/*
+ * 定义特殊的共享的类型Q_DECLARE_SHARED
+ * 类型必须包含swap成员，定义在Qt的命名空间下
+ * */
+#define Q_DECLARE_SHARED_IMPL(TYPE, FLAGS) \
+    Q_DECLARE_TYPEINFO(TYPE, FLAGS);       \
+    inline void swap(TYPE &value1, TYPE &value2) \
+        noexcept(noexcept(value1.swap(value2)))  \
+   { value1.swap(value2); }
+#define Q_DECLARE_SHARED(TYPE) Q_DECLARE_SHARED_IMPL(TYPE, Q_RELOCATABLE_TYPE)
+#define Q_DECLARE_SHARED_NOT_MOVABLE_UNTIL_QT6(TYPE) Q_DECLARE_SHARED_IMPL(TYPE, Q_RELOCATABLE_TYPE)
+
 namespace QTypeTraits
 {
     namespace detail {
@@ -188,11 +200,17 @@ namespace QTypeTraits
     template <typename Container, typename T>
     using has_operator_equal_container = std::disjunction<std::is_base_of<Container, T>, QTypeTraits::has_operator_equal<T>>;
 
+    template <typename ...T>
+    using compare_eq_result = std::enable_if_t<std::conjunction_v<QTypeTraits::has_operator_equal<T>...>, bool>;
+
     template <typename Container, typename ...T>
     using compare_eq_result_container = std::enable_if_t<std::conjunction_v<QTypeTraits::has_operator_equal_container<Container, T>...>, bool>;
 
     template <typename Container, typename T>
     using has_operator_less_than_container = std::disjunction<std::is_base_of<Container, T>, QTypeTraits::has_operator_less_than<T>>;
+
+    template <typename ...T>
+    using compare_lt_result = std::enable_if_t<std::conjunction_v<QTypeTraits::has_operator_less_than<T>...>, bool>;
 
     template <typename Container, typename ...T>
     using compare_lt_result_container = std::enable_if_t<std::conjunction_v<QTypeTraits::has_operator_less_than_container<Container, T>...>, bool>;

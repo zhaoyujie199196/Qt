@@ -80,6 +80,11 @@ namespace Qt {
         Uninitialized
     };
     inline constexpr Initialization Uninitialized = Initialization::Uninitialized;
+
+    enum ChecksumType {
+        ChecksumIso3309,
+        ChecksumItuV41
+    };
 }
 
 QT_END_NAMESPACE

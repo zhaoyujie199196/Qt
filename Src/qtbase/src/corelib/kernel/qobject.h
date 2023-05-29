@@ -9,6 +9,7 @@
 #include <functional>
 #include <map>
 #include <string>
+#include <vector>
 
 QT_BEGIN_NAMESPACE
 
@@ -20,7 +21,7 @@ QT_BEGIN_NAMESPACE
 class QObject {
 public:
     typedef std::function<void()> InvokeMethod;
-    typedef std::map<std::string, InvokeMethod> InvokeMethodMap;
+    typedef std::vector<std::pair<std::string, InvokeMethod>> InvokeMethodMap;
 
     QObject() = default;
     virtual ~QObject() = default;
@@ -32,7 +33,7 @@ protected:
     void registerInvokeMethod(const std::string &key, const InvokeMethod &func);
 
 protected:
-    std::map<std::string, InvokeMethod> m_invokeMethodMap;
+    InvokeMethodMap m_invokeMethodMap;
 };
 
 QT_END_NAMESPACE

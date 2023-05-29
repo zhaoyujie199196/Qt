@@ -17,6 +17,26 @@ namespace QtPrivate {
         return !less(p, b) && less(p, e);
     }
 
+    //将first数组移动到out中
+    template <typename T, typename N>
+    void q_uninitialized_relocate_n(T *first, N n, T *out)
+    {
+        if constexpr(QTypeInfo<T>::isRelocatable) {  //可以直接移动内存
+            if (n != N(0)) {
+                std::memmove(static_cast<void *>(out),
+                             static_cast<const void *>(first),
+                             n * sizeof(T));
+            }
+        }
+        else {
+            //调用移动拷贝，调用first的析构函数，但是没有销毁内存
+            std::uninitialized_move_n(first, n, out);
+            if constexpr(QTypeInfo<T>::isComplex) {
+                std::destroy_n(first, n);
+            }
+        }
+    }
+
     template <typename iterator, typename N>
     void q_relocate_overlap_n_left_move(iterator first, N n, iterator d_first) {
         Q_ASSERT(n);
@@ -162,6 +182,17 @@ namespace QtPrivate {
         result = std::distance(it, e);
         c.erase(it, e);
         return result;
+    }
+
+    template <typename Container, typename InputIterator, IfIsNotForwardIterator<InputIterator> = true>
+    void reverseIfForwardIterator(Container *, InputIterator, InputIterator)
+    {
+    }
+
+    template <typename Container, typename ForwardIterator, IfIsForwardIterator<ForwardIterator> = true>
+    void reserveIfForwardIterator(Container *c, ForwardIterator f, ForwardIterator l)
+    {
+        c->reserve(static_cast<typename Container::size_type>(std::distance(f, l)));
     }
 }
 

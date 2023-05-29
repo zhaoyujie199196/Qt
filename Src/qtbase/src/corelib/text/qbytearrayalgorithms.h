@@ -6,6 +6,7 @@
 #define QBYTEARRAYALGORITHMS_H
 
 #include <QtCore/qglobal.h>
+#include <QtCore/qnamespace.h>
 #include <stdarg.h>
 #include <string>
 
@@ -21,13 +22,26 @@ char *qstrcpy(char *dst, const char *src);
 
 //格式化字符串
 int qvsnprintf(char *str, size_t n, const char *fmt, va_list ap);
-int qnsprintf(char *str, size_t n, const char *fmt, ...);
+int qsnprintf(char *str, size_t n, const char *fmt, ...);
 inline size_t qstrlen(const char *str) { return str ? strlen(str) : 0; }
+inline size_t qstrnlen(const char *str, size_t maxLen) {
+    size_t length = 0;
+    if (str) {
+        while (length < maxLen && *str) {
+            length++;
+            str++;
+        }
+    }
+    return length;
+}
 
 //大小写不敏感的字符串比较
 int qstricmp(const char *, const char *);
 int qstrnicmp(const char *, const char *, size_t len);
 int qstrnicmp(const char *, qsizetype, const char *, qsizetype = -1);
+
+//zhaoyujie TODO CRC16循环冗余校验 https://blog.csdn.net/weixin_38253113/article/details/81267881
+quint16 qChecksum(QByteArrayView data, Qt::ChecksumType standard = Qt::ChecksumIso3309);
 
 namespace QtPrivate
 {

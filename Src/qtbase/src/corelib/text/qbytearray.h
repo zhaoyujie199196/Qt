@@ -6,6 +6,7 @@
 #define QBYTEARRAY_H
 
 #include <QtCore/qglobal.h>
+#include <QtCore/QList>
 #include "qbytearrayview.h"
 #include "qbytearrayalgorithms.h"
 #include "QtCore/qarraydatapointer.h"
@@ -19,6 +20,9 @@ QT_BEGIN_NAMESPACE
 
 //QByteArrayData里面放的char类型？
 using QByteArrayData = QArrayDataPointer<char>;
+//Data指针为空，str指针有内容，全局静态区的str，不需要额外分配内存
+//编译器优化，同样的裸字符串内存地址一样，其实是同一份数据
+#define QByteArrayLiteral(str) (QByteArray(QByteArrayData(nullptr, const_cast<char *>(str), sizeof(str) - 1)))
 
 class QByteArray
 {
@@ -30,6 +34,27 @@ private:
     static const char _empty;  //TODO 这个设计是什么目的？
 
 public:
+    //base64编码 原理：https://zhuanlan.zhihu.com/p/146599482
+    enum class Base64DecodingStatus {
+        Ok,
+        IllegalInputLength,
+        IllegalCharacter,
+        IllegalPadding,
+    };
+
+    enum Base64Option {
+        Base64Encoding = 0,
+        Base64UrlEncoding = 1,
+
+        KeepTrailingEquals = 0,
+        OmitTrailingEquals = 2,
+
+        IgnoreBase64DecodingErrors = 0,
+        AbortOnBase64DecodingErrors = 4,
+    };
+    Q_DECLARE_FLAGS(Base64Options, Base64Option)  //定义了内部的QFlags
+
+public:
     typedef qsizetype size_type;
     typedef qptrdiff difference_type;
     typedef const char & const_reference;
@@ -37,6 +62,10 @@ public:
     typedef char *pointer;
     typedef const char *const_pointer;
     typedef char value_type;
+
+public:
+    //base64编码 ：https://zhuanlan.zhihu.com/p/146599482
+    class FromBase64Result;
 
 public:
     inline constexpr QByteArray() noexcept;
@@ -85,6 +114,8 @@ public:
     inline char &front() { return operator[](0); }
     char back() const { return at(size() - 1); }
     inline char &back() { return operator[](size() - 1); }
+
+    QList<QByteArray> split(char sep) const;
 
     qsizetype indexOf(char c, qsizetype from = 0) const;
     qsizetype indexOf(QByteArrayView bv, qsizetype from = 0) const
@@ -148,8 +179,32 @@ public:
     QByteArray simplified() && { return simplified_helper(*this); }
 
     //左对齐width位，不够位数使用fill填充，truncate是否截断
-    QByteArray leftJustified(qsizetype width, char fill = '.', bool truncate = false) const;
-    QByteArray rightJustified(qsizetype width, char fill = '.', bool truncate = false);
+    QByteArray leftJustified(qsizetype width, char fill = ' ', bool truncate = false) const;
+    QByteArray rightJustified(qsizetype width, char fill = ' ', bool truncate = false);
+
+    QByteArray toBase64(Base64Options options = Base64Encoding) const;
+    QByteArray toHex(char separator = '\0') const;
+    QByteArray toPercentEncoding(const QByteArray &exclude = QByteArray(),
+                                 const QByteArray &include = QByteArray(),
+                                 char percent = '%') const;
+
+    QByteArray &setNum(short, int base = 10);
+    QByteArray &setNum(ushort, int base = 10);
+    QByteArray &setNum(int, int base = 10);
+    QByteArray &setNum(uint, int base = 10);
+    QByteArray &setNum(long, int base = 10);
+    QByteArray &setNum(ulong, int base = 10);
+    QByteArray &setNum(qlonglong, int base = 10);
+    QByteArray &setNum(qulonglong, int base = 10);
+    QByteArray &setNum(float, char format = 'g', int precision = 6);
+    QByteArray &setNum(double, char format = 'g', int precision = 6);
+    QByteArray &setRawData(const char *a, qsizetype n);
+
+    //raw: 原始的，不管理data的内存，所以第一个参数为nullptr
+    static QByteArray fromRawData(const char *data, qsizetype size)
+    {
+        return QByteArray(DataPointer(nullptr, const_cast<char *>(data), size));
+    }
 
     //前插入
     QByteArray &prepend(char c)
@@ -158,6 +213,8 @@ public:
     { return insert(0, count, c); }
     QByteArray &prepend(const char *s)
     { return insert(0, QByteArrayView(s, qsizetype(qstrlen(s)))); }
+    QByteArray &prepend(const char *s, qsizetype len)
+    { return insert(0, QByteArrayView(s, len)); }
     QByteArray &prepend(const QByteArray &a);
     QByteArray &prepend(QByteArrayView a)
     { return insert(0, a); }
@@ -182,6 +239,7 @@ public:
     QByteArray &insert(qsizetype i, qsizetype count, char c);
     QByteArray &insert(qsizetype i, char c)
     { return insert(i, QByteArrayView(&c, 1)); }
+    //len可能会超出s的范围，不会做有效性判断
     QByteArray &insert(qsizetype i, const char *s, qsizetype len)
     { return insert(i, QByteArrayView(s, len)); }
 
@@ -192,16 +250,6 @@ public:
         Q_ASSERT(false);
         QtPrivate::sequential_erase_if(*this, pred);
         return *this;
-    }
-
-    inline size_t size() const { return d.size; }
-
-    bool isNull() const { return d->isNull(); }
-
-    inline DataPointer &data_ptr() { return d; }
-    explicit inline QByteArray(const DataPointer &dd)
-        : d(dd)
-    {
     }
 
     //STL 适配接口
@@ -227,6 +275,15 @@ public:
     const_reverse_iterator crbegin() const { return const_reverse_iterator(end()); }
     const_reverse_iterator crend() const { return const_reverse_iterator(begin()); }
 
+    QByteArray &operator+=(char c)
+    { return append(c); }
+    QByteArray &operator+=(const char *s)
+    { return append(s); }
+    QByteArray &operator+=(const QByteArray &a)
+    { return append(a); }
+    QByteArray &operator+=(QByteArrayView a)
+    { return append(a); }
+
     friend inline bool operator==(const QByteArray &a1, const QByteArray &a2) noexcept
     { return QByteArrayView(a1) == QByteArrayView(a2); }
     //a1，a2都被隐式转换成了QByteArrayView
@@ -240,6 +297,25 @@ public:
     { return a2 ? QtPrivate::compareMemory(a1, a2) != 0 : !a1.isEmpty(); }
     friend inline bool operator!=(const char *a1, const QByteArray &a2) noexcept
     { return a1 ? QtPrivate::compareMemory(a1, a2) != 0 : !a2.isEmpty(); }
+
+    inline qsizetype size() const { return d->size; }
+    inline qsizetype count() const { return size(); }
+    inline qsizetype length() const { return size(); }
+
+    bool isNull() const { return d->isNull(); }
+
+    inline DataPointer &data_ptr() { return d; }
+    explicit inline QByteArray(const DataPointer &dd)
+            : d(dd)
+    {
+    }
+
+    static FromBase64Result fromBase64Encoding(QByteArray &&base64, Base64Options options = Base64Encoding);
+    static FromBase64Result fromBase64Encoding(const QByteArray &base64, Base64Options options = Base64Encoding);
+    static QByteArray fromBase64(const QByteArray &base64, Base64Options options = Base64Encoding);
+    static QByteArray fromHex(const QByteArray &hexEncoded);
+    static QByteArray fromPercentEncoding(const QByteArray &pctEncoded, char percent = '%');
+
 
 private:
     void createEmpty() noexcept {
@@ -256,6 +332,53 @@ private:
     static QByteArray simplified_helper(const QByteArray &a);
     static QByteArray simplified_helper(QByteArray &a);
 };
+
+Q_DECLARE_SHARED(QByteArray)
+
+//operator +
+inline const QByteArray operator+(const QByteArray &a1, const QByteArray &a2)
+{ return QByteArray(a1) += a2; }
+inline const QByteArray operator+(const QByteArray &a1, const char *a2)
+{ return QByteArray(a1) += a2; }
+inline const QByteArray operator+(const QByteArray &a1, char a2)
+{ return QByteArray(a1) += a2; }
+inline const QByteArray operator+(const char *a1, const QByteArray &a2)
+{ return QByteArray(a1) += a2; }
+inline const QByteArray operator+(char a1, const QByteArray &a2)
+{ return QByteArray(&a1, 1) += a2; }
+
+class QByteArray::FromBase64Result
+{
+public:
+    QByteArray decoded;
+    QByteArray::Base64DecodingStatus decodingStatus;
+
+    void swap(QByteArray::FromBase64Result &other) noexcept
+    {
+        qSwap(decoded, other.decoded);
+        qSwap(decodingStatus, other.decodingStatus);
+    }
+
+    explicit operator bool() const noexcept { return decodingStatus == QByteArray::Base64DecodingStatus::Ok; }
+
+    friend inline bool operator==(const QByteArray::FromBase64Result &lhs, const QByteArray::FromBase64Result &rhs) noexcept
+    {
+        if (lhs.decodingStatus != rhs.decodingStatus) {
+            return false;
+        }
+        //zhaoyujie TODO 如果不是ok状态，decoded可以不用相等？
+        if (lhs.decodingStatus == QByteArray::Base64DecodingStatus::Ok && lhs.decoded != rhs.decoded) {
+            return false;
+        }
+        return true;
+    }
+
+    friend inline bool operator!=(const QByteArray::FromBase64Result &lhs, const QByteArray::FromBase64Result &rhs) noexcept
+    {
+        return !(lhs == rhs);
+    }
+};
+Q_DECLARE_SHARED(QByteArray::FromBase64Result)
 
 inline constexpr QByteArray::QByteArray() noexcept
 {

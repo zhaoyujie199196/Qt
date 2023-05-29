@@ -31,15 +31,17 @@ void QTestRunner::init()
 
 int QTestRunner::run()
 {
-    const auto &functionMap = m_object->getInvokeMethodMap();
+    const auto &functionVec = m_object->getInvokeMethodMap();
 
     auto isTestDataFunc=[](const std::string &funcName)->bool {
         return funcName.ends_with(DATA_SUFFIX);
     };
-    auto getTestDataFunc=[&functionMap](const std::string &funcName)->QObject::InvokeMethod {
+    auto getTestDataFunc=[&functionVec](const std::string &funcName)->QObject::InvokeMethod {
         auto testDataFuncName = funcName + DATA_SUFFIX;
-        auto it = functionMap.find(testDataFuncName);
-        if (it == functionMap.end()) {
+        auto it = std::find_if(functionVec.begin(), functionVec.end(), [&testDataFuncName](const std::pair<std::string, QObject::InvokeMethod> &pair)->bool {
+            pair.first == testDataFuncName;
+        });
+        if (it == functionVec.end()) {
             return nullptr;
         }
         else {
@@ -47,7 +49,7 @@ int QTestRunner::run()
         }
     };
 
-    for (auto it = functionMap.begin(); it != functionMap.end(); ++it) {
+    for (auto it = functionVec.begin(); it != functionVec.end(); ++it) {
         const std::string &funcName = it->first;
         if (isTestDataFunc(funcName)) {
             continue;

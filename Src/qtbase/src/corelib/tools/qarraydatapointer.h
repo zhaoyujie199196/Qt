@@ -168,7 +168,7 @@ public:
     void ref() noexcept { if (d) d->ref(); }
     bool deref() noexcept { return !d || d->deref(); }
     bool isMutable() const noexcept { return d; } //isMutable可变的？有什么作用?
-    bool isShared() const noexcept { return !d || d->isShared(); }
+    bool isShared() const noexcept { return !d || d->isShared(); }  //d为空或者d被分享了
     bool needsDetach() const noexcept { return !d || d->needsDetach(); }
     qsizetype detachCapacity(qsizetype newSize) const noexcept { return d ? d->detachCapacity(newSize) : newSize; }
     const typename Data::ArrayOptions flags() const noexcept  { return d ? d->flags : Data::ArrayOptionDefault; }

@@ -12,7 +12,7 @@ int qvsnprintf(char *str, size_t n, const char *fmt, va_list ap)
     return ::vsnprintf(str, n, fmt, ap);
 }
 
-int qnsprintf(char *str, size_t n, const char *fmt, ...)
+int qsnprintf(char *str, size_t n, const char *fmt, ...)
 {
     va_list ap;
     va_start(ap, fmt);
