@@ -39,7 +39,7 @@ int QTestRunner::run()
     auto getTestDataFunc=[&functionVec](const std::string &funcName)->QObject::InvokeMethod {
         auto testDataFuncName = funcName + DATA_SUFFIX;
         auto it = std::find_if(functionVec.begin(), functionVec.end(), [&testDataFuncName](const std::pair<std::string, QObject::InvokeMethod> &pair)->bool {
-            pair.first == testDataFuncName;
+            return pair.first == testDataFuncName;
         });
         if (it == functionVec.end()) {
             return nullptr;

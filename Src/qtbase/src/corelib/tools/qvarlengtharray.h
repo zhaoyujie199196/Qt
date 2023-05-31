@@ -69,7 +69,6 @@ public:
     {
         //如果是Forward迭代器，可以提供重复读操作，而Input迭代器只能读取一次。这里使用Forward先resize提高效率
         // https://blog.51cto.com/u_6220803/3198640
-        Q_ASSERT(false);
         QtPrivate::reserveIfForwardIterator(this, first, last);
         std::copy(first, last, std::back_inserter(*this));
     }
@@ -96,11 +95,10 @@ public:
     //移动
     QVarLengthArray &operator=(QVarLengthArray &&other) noexcept(std::is_nothrow_move_constructible_v<T>)
     {
-        Q_ASSERT(false);
-        clear();
+        clear();  //clear会释放自身内存
         Q_ASSERT(capacity() >= Prealloc);
         const auto otherInlineStorage = reinterpret_cast<T *>(other.m_array);
-        if (other.m_ptr != otherInlineStorage) {
+        if (other.m_ptr != otherInlineStorage) {  //如果不是内部数组的数据，直接交换就行，原内存的释放交给other进行
             m_alloc = std::exchange(other.m_alloc, Prealloc);
             m_ptr = std::exchange(other.m_ptr, otherInlineStorage);
         }
@@ -267,7 +265,7 @@ public:
     template <typename U = T, qsizetype Prealloc2 = Prealloc>
     friend QTypeTraits::compare_eq_result<U> operator!=(const QVarLengthArray<T, Prealloc> &l, const QVarLengthArray<T, Prealloc2> &r)
     {
-        return !(l != r);
+        return !(l == r);
     }
 
     template <typename U = T, qsizetype Prealloc2 = Prealloc>
@@ -300,15 +298,15 @@ private:
     bool isValidIterator(const const_iterator &i) const
     {
         const std::less<const T *>less = {};
-        return !less(cend(), i) && !less(i, cbegin())
-;    }
+        return !less(cend(), i) && !less(i, cbegin());
+    }
 
 private:
     qsizetype m_alloc;  //capacity
     qsizetype m_size;  //size
     //如果容量过大，使用ptr保存，否则使用array保存。有点骚啊，这操作是为了啥？
     T *m_ptr;
-    std::aligned_storage<sizeof(T), alignof(T)> m_array[Prealloc];
+    std::aligned_storage_t<sizeof(T), alignof(T)> m_array[Prealloc];
 };
 
 template <class T, qsizetype Prealloc>
@@ -344,7 +342,6 @@ inline void QVarLengthArray<T, Prealloc>::reserve(qsizetype asize) {
 template <class T, qsizetype Prealloc>
 void QVarLengthArray<T, Prealloc>::reallocate(qsizetype asize, qsizetype aalloc)
 {
-    Q_ASSERT(false);
     Q_ASSERT(aalloc >= asize);
     Q_ASSERT(m_ptr);
     T *oldPtr = m_ptr;
@@ -365,6 +362,7 @@ void QVarLengthArray<T, Prealloc>::reallocate(qsizetype asize, qsizetype aalloc)
         m_size = 0;
         if (!QTypeInfo<T>::isRelocatable) {
             while (m_size < copySize) {
+                //先构造，再调用原内存块的析构
                 new (m_ptr + m_size) T(std::move(*(oldPtr + m_size)));
                 (oldPtr + m_size)->~T();
                 m_size++;
@@ -440,7 +438,7 @@ inline qsizetype QVarLengthArray<T, Prealloc>::lastIndexOf(const AT &t, qsizetyp
         T *b = m_ptr;
         T *n = m_ptr + from + 1;
         while (n != b) {
-            if (*--n == b) {
+            if (*--n == t) {
                 return n - b;
             }
         }
@@ -488,7 +486,7 @@ void QVarLengthArray<T, Prealloc>::append(const T *buf, qsizetype size)
         return;
     }
     const qsizetype asize = m_size + size;
-    if (m_size >= m_alloc) {
+    if (asize >= m_alloc) {
         reallocate(m_size, qMax(m_size * 2, asize));
     }
     if constexpr(QTypeInfo<T>::isComplex) { //复杂类型通常是指包含有构造函数、析构函数、拷贝构造函数、移动构造函数等成员函数的类型
@@ -592,8 +590,6 @@ qsizetype QVarLengthArray<T, Prealloc>::removeIf(Predicate pred)
 template <class T, qsizetype Prealloc>
 typename QVarLengthArray<T, Prealloc>::iterator QVarLengthArray<T, Prealloc>::insert(const_iterator before, T &&t)
 {
-    Q_ASSERT(isValidIterator(before));
-
     qsizetype offset = qsizetype(before - m_ptr);
     reserve(m_size + 1);
     if (!QTypeInfo<T>::isRelocatable) {
@@ -664,6 +660,7 @@ typename QVarLengthArray<T, Prealloc>::iterator QVarLengthArray<T, Prealloc>::er
     qsizetype n = l - f;
 
     if constexpr (QTypeInfo<T>::isComplex) {
+        //std::move时，会调用operator=(T &&) 或 operator=(const T &)
         std::move(m_ptr + l, m_ptr + m_size, QT_MAKE_CHECKED_ARRAY_ITERATOR(m_ptr + f, m_size - f));
         std::destroy(m_ptr + m_size - n, m_ptr + m_size);
     }

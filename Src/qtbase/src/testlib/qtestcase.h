@@ -22,6 +22,23 @@ do {                       \
         return;            \
 } while (false)
 
+#define QFAIL(message) \
+do {                   \
+    QTest::qFail(static_cast<const char *>(message), __FILE__, __LINE__); \
+    return;            \
+} while (false)
+
+#define QVERIFY2(statement, description) \
+do {\
+    if (statement) {\
+        if (!QTest::qVerify(true, #statement, static_cast<const char *>(description), __FILE__, __LINE__))\
+            return;\
+    } else {\
+        if (!QTest::qVerify(false, #statement, static_cast<const char *>(description), __FILE__, __LINE__))\
+            return;\
+    }\
+} while (false)
+
 #define QFETCH(Type, name) \
     Type name = *static_cast<Type *>(QTest::qData(#name, ::qMetaTypeId<typename std::remove_cv<Type>::type>()))
 

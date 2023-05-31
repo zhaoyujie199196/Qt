@@ -943,7 +943,7 @@ namespace QTest {
     char *toString(const ConstructionCounted &cc)
     {
         char *str = new char[5];
-        qnsprintf(str, 4, "%d", cc.i);
+        qsnprintf(str, 4, "%d", cc.i);
         return str;
     }
 }
