@@ -6,7 +6,6 @@
 #define QPAIR_H
 
 #include <QtCore/qglobal.h>
-#include <QtCore/QMetaType>
 
 QT_BEGIN_NAMESPACE
 

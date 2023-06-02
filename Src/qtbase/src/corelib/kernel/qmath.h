@@ -21,6 +21,7 @@ namespace QtPrivate {
     }
 
     constexpr inline quint64 qConstexprNextPowerOfTwo(quint64 v) {
+        //最高位循环左移 + 1
         v |= v >> 1;
         v |= v >> 2;
         v |= v >> 4;

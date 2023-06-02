@@ -2,11 +2,11 @@
 // Created by Yujie Zhao on 2023/3/6.
 //
 
+#include <QtCore/qglobal.h>
+
 #ifndef QFLAGS_H
 #define QFLAGS_H
 
-#include <QtCore/qglobal.h>
-#include <QtCore/qmetatype.h>
 #include <initializer_list>
 
 QT_BEGIN_NAMESPACE

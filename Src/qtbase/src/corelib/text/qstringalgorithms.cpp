@@ -6,31 +6,21 @@
 #include "qstringview.h"
 #include "qlatin1string.h"
 #include "qchar.cpp"
+#include "qbytearrayalgorithms.h"
 
 QT_BEGIN_NAMESPACE
 
-namespace QtPrivate {
-    constexpr int lencmp(qsizetype lhs, qsizetype rhs) noexcept {
-        if (lhs == rhs) {
-            return 0;
-        } else if (lhs > rhs) {
-            return 1;
-        } else {
-            return -1;
-        }
+constexpr int lencmp(qsizetype lhs, qsizetype rhs) noexcept {
+    if (lhs == rhs) {
+        return 0;
+    } else if (lhs > rhs) {
+        return 1;
+    } else {
+        return -1;
     }
+}
 
-    constexpr int qstrncmp(const char *str1, const char *str2, size_t len) noexcept {
-        if (str1 && str2) {
-            return strncmp(str1, str2, len);
-        } else if (str1) {
-            return 1;
-        } else if (str2) {
-            return -1;
-        } else {
-            return 0;
-        }
-    }
+namespace QtPrivate {
 
 //大小写不敏感判断两个字符串大小
     static int latin1nicmp(const char *lhsChar, qsizetype lSize, const char *rhsChar, qsizetype rSize) {

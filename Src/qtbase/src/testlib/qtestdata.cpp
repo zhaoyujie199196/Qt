@@ -8,6 +8,7 @@
 #include <QtTest/qtestassert.h>
 #include <QtCore/QMetaType>
 #include <QtCore/qlatin1string.h>
+#include <QtCore/qobjectdefs.h>
 
 QT_BEGIN_NAMESPACE
 

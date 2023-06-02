@@ -48,6 +48,18 @@ uchar asciiLower(uchar c)
     return c >= 'A' && c <= 'Z' ? c | 0x20 : c;
 }
 
+int qstrncmp(const char *str1, const char *str2, size_t len) noexcept {
+    if (str1 && str2) {
+        return strncmp(str1, str2, len);
+    } else if (str1) {
+        return 1;
+    } else if (str2) {
+        return -1;
+    } else {
+        return 0;
+    }
+}
+
 int qstricmp(const char *str1, const char *str2)
 {
     const uchar *s1 = reinterpret_cast<const uchar *>(str1);
@@ -75,7 +87,6 @@ int qstricmp(const char *str1, const char *str2)
         } while (unlimited || offset < max);
         return int(Incomplete);
     };
-    Q_ASSERT(false);  //zhaoyujie TODO 这里为什么是-1
     return innerCompare(-1, true);
 }
 

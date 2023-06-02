@@ -2,13 +2,12 @@
 // Created by Yujie Zhao on 2023/2/16.
 //
 
-#ifndef QTYPEINFO_H
-#define QTYPEINFO_H
-
 #include <QtCore/qglobal.h>
 #include <tuple>
 #include <variant>
 
+#ifndef QTYPEINFO_H
+#define QTYPEINFO_H
 
 QT_BEGIN_NAMESPACE
 
@@ -115,8 +114,7 @@ template <>                             \
 Q_DECLARE_TYPEINFO_BODY(TYPE, FLAGS)
 
 //前置声明
-template <typename T>
-class QFlags;
+template <typename T> class QFlags;
 //对QFLags做特化模板
 template <typename T>
 Q_DECLARE_TYPEINFO_BODY(QFlags<T>, Q_PRIMITIVE_TYPE)

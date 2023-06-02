@@ -9,7 +9,9 @@
 
 QT_BEGIN_NAMESPACE
 
+class QByteArray;
 struct QMetaObject {
+    static QByteArray normalizedType(const char *type);
 };
 
 QT_END_NAMESPACE

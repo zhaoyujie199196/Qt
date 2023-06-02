@@ -87,6 +87,8 @@ namespace QTest {
         return qstrdup(b ? "true" : "false");
     }
 
+    bool compare_string_helper(const char *t1, const char *t2, const char *actual, const char *expected, const char *fle, int line);
+
     //比较辅助函数
     bool compare_helper(bool success, const char *failMsg, char *val1, char *val2, const char *actual, const char *expected, const char *file, int line);
 
@@ -99,6 +101,75 @@ namespace QTest {
     inline bool qCompare(const T1 &t1, const T2 &t2, const char *actual, const char *expected, const char *file, int line)
     {
         return compare_helper(t1 == t2, "Compared values are not the same", toString(t1), toString(t2), actual, expected, file, line);
+    }
+
+    inline bool qCompare(double const &t1, float const &t2, const char *actual, const char *expected, const char *file, int line)
+    {
+        return qCompare(qreal(t1), qreal(t2), actual, expected, file, line);
+    }
+
+    inline bool qCompare(float const &t1, double const &t2, const char *actual, const char *expected, const char *file, int line)
+    {
+        return qCompare(qreal(t1), qreal(t2), actual, expected, file, line);
+    }
+
+    //zhaoyujie TODO
+//    template <typename T>
+//    inline bool qCompare(const T *t1, const T *t2, const char *actual, const char *expected, const char *file, int line)
+//    {
+//        return compare_ptr_helper(t1, t2, actual, expected, file, line);
+//    }
+//
+//    template <typename T>
+//    inline bool qCompare(T *t1, T *t2, const char *actual, const char *expected, const char *file, int line)
+//    {
+//        return compare_ptr_helper(t1, t2, actual, expected, file, line);
+//    }
+//
+//    template <typename T>
+//    inline bool qCompare(T *t1, std::nullptr_t, const char *actual, const char *expected, const char *file, int line)
+//    {
+//        return compare_ptr_helper(t1, nullptr, actual, file, line);
+//    }
+//
+//    template <typename T>
+//    inline bool qCompare(std::nullptr_t, T *t2, const char *actual, const char *expected, const char *file, int line)
+//    {
+//        return compare_ptr_helper(nullptr, t2, actual, expected, file, line);
+//    }
+//
+//    template <typename T1, typename T2>
+//    inline bool qCompare(const T1 *t1, const T2 *t2, const char *actual, const char *expected, const char *file, int line)
+//    {
+//        return compare_ptr_helper(t1, static_cast<const T1 *>(t2), actual, expected, file, line);
+//    }
+//
+//    template <typename T1, typename T2>
+//    inline bool qCompare(T1 *t1, T2 *t2, const char *actual, const char *expected, const char *file, int line)
+//    {
+//        return compare_ptr_helper(const_cast<const T1 *>(t1), static_cast<const T1 *>(const_cast<const T2 *>(t2)), actual, expected, file, line);
+//    }
+//
+//    inline bool compare_ptr_helper(const volatile void *t1, const volatile void *t2, const char *actual, const char *expected, const char *file, int line)
+//    {
+//        return compare_helper(t1 == t2, "Compare pointers are not the same", toString(t1), toString(t2), actual, expected, file, line);
+//    }
+
+    inline bool qCompare(const char *t1, const char *t2, const char *actual, const char *expected, const char *file, int line)
+    {
+        return compare_string_helper(t1, t2, actual, expected, file, line);
+    }
+    inline bool qCompare(char *t1, char *t2, const char *actual, const char *expected, const char *file, int line)
+    {
+        return compare_string_helper(t1, t2, actual, expected, file, line);
+    }
+    inline bool qCompare(char *t1, const char *t2, const char *actual, const char *expected, const char *file, int line)
+    {
+        return compare_string_helper(t1, t2, actual, expected, file, line);
+    }
+    inline bool qCompare(const char *t1, char *t2, const char *actual, const char *expected, const char *file, int line)
+    {
+        return compare_string_helper(t1, t2, actual, expected, file, line);
     }
 
 #define QCOMPARE(actual, expected) \

@@ -9,6 +9,7 @@
 
 QT_BEGIN_NAMESPACE
 
+template <typename T> class QList;
 template <typename T, qsizetype Prealloc = 256> class QVarLengthArray;  //QVarLengthArray的前置声明
 
 QT_END_NAMESPACE

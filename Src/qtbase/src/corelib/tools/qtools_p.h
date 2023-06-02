@@ -15,6 +15,9 @@ struct CalculateGrowingBlockSizeResult
     qsizetype elementCount;
 };
 
+qsizetype Q_DECL_CONST_FUNCTION qCalculateBlockSize(qsizetype elementCount, qsizetype elementSize, qsizetype headerSize = 0) noexcept;
+CalculateGrowingBlockSizeResult Q_DECL_CONST_FUNCTION qCalculateGrowingBlockSize(qsizetype elementCount, qsizetype elementSize, qsizetype headerSize = 0) noexcept;
+
 QT_END_NAMESPACE
 
 #endif //QTOOLS_P_H

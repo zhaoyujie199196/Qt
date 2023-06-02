@@ -6,11 +6,11 @@
 #define QBYTEARRAY_H
 
 #include <QtCore/qglobal.h>
-#include <QtCore/QList>
 #include "qbytearrayview.h"
 #include "qbytearrayalgorithms.h"
 #include "QtCore/qarraydatapointer.h"
 #include "QtCore/qnamespace.h"
+#include "QtCore/qcontainerfwd.h"
 
 #ifndef QT5_NULL_STRINGS
 #define QT5_NULL_STRINGS 1
@@ -200,6 +200,14 @@ public:
     QByteArray &setNum(double, char format = 'g', int precision = 6);
     QByteArray &setRawData(const char *a, qsizetype n);
 
+    static QByteArray number(int, int base = 10);
+    static QByteArray number(uint, int base = 10);
+    static QByteArray number(long, int base = 10);
+    static QByteArray number(ulong, int base = 10);
+    static QByteArray number(qlonglong, int base = 10);
+    static QByteArray number(qulonglong, int base = 10);
+    static QByteArray number(double, char format = 'g', int precision = 6);
+
     //raw: 原始的，不管理data的内存，所以第一个参数为nullptr
     static QByteArray fromRawData(const char *data, qsizetype size)
     {
@@ -247,10 +255,28 @@ public:
     template <typename Predicate>
     QByteArray &removeIf(Predicate pred)
     {
-        Q_ASSERT(false);
         QtPrivate::sequential_erase_if(*this, pred);
         return *this;
     }
+
+    QByteArray &replace(qsizetype index, qsizetype len, const char *s, qsizetype alen)
+    { return replace(index, len, QByteArrayView(s, alen)); }
+    QByteArray &replace(qsizetype index, qsizetype len, QByteArrayView s);
+    QByteArray &replace(char before, QByteArrayView after)
+    { return replace(QByteArrayView(&before, 1), after); }
+    QByteArray &replace(const char *before, qsizetype bsize, const char *after, qsizetype asize)
+    { return replace(QByteArrayView(before, bsize), QByteArrayView(after, asize)); }
+    QByteArray &replace(QByteArrayView before, QByteArrayView after);
+    QByteArray &replace(char before, char after);
+
+    QByteArray &operator+=(char c)
+    { return append(c); }
+    QByteArray &operator+=(const char *s)
+    { return append(s); }
+    QByteArray &operator+=(const QByteArray &a)
+    { return append(a); }
+    QByteArray &operator+=(QByteArrayView a)
+    { return append(a); }
 
     //STL 适配接口
     typedef char *iterator;
@@ -275,15 +301,6 @@ public:
     const_reverse_iterator crbegin() const { return const_reverse_iterator(end()); }
     const_reverse_iterator crend() const { return const_reverse_iterator(begin()); }
 
-    QByteArray &operator+=(char c)
-    { return append(c); }
-    QByteArray &operator+=(const char *s)
-    { return append(s); }
-    QByteArray &operator+=(const QByteArray &a)
-    { return append(a); }
-    QByteArray &operator+=(QByteArrayView a)
-    { return append(a); }
-
     friend inline bool operator==(const QByteArray &a1, const QByteArray &a2) noexcept
     { return QByteArrayView(a1) == QByteArrayView(a2); }
     //a1，a2都被隐式转换成了QByteArrayView
@@ -304,11 +321,20 @@ public:
 
     bool isNull() const { return d->isNull(); }
 
+    iterator erase(const_iterator first, const_iterator last);
+
     inline DataPointer &data_ptr() { return d; }
     explicit inline QByteArray(const DataPointer &dd)
             : d(dd)
     {
     }
+
+    QByteArray repeated(qsizetype times) const;
+
+    static inline QByteArray fromStdString(const std::string &s)
+    { return QByteArray(s.data(), s.size()); }
+    inline std::string toStdString() const
+    { return std::string(constData(), length()); }
 
     static FromBase64Result fromBase64Encoding(QByteArray &&base64, Base64Options options = Base64Encoding);
     static FromBase64Result fromBase64Encoding(const QByteArray &base64, Base64Options options = Base64Encoding);
@@ -400,6 +426,13 @@ inline int QByteArray::compare(QByteArrayView a, Qt::CaseSensitivity cs) const n
     }
 }
 
+inline namespace QtLiterals {
+    //用户自定义字面量语法，https://blog.csdn.net/K346K346/article/details/85322227
+    inline QByteArray operator"" _qba(const char *str, size_t size) noexcept
+    {
+        return QByteArray(QByteArrayData(nullptr, const_cast<char *>(str), qsizetype(size)));
+    }
+}
 
 QT_END_NAMESPACE
 

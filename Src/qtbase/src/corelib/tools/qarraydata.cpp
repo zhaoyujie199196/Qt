@@ -15,8 +15,9 @@ struct alignas(std::max_align_t) AlignedQArrayData : QArrayData {
 
 };
 
-static qsizetype qCalculateBlockSize(qsizetype elementCount, qsizetype elementSize, qsizetype headerSize) noexcept
+qsizetype qCalculateBlockSize(qsizetype elementCount, qsizetype elementSize, qsizetype headerSize) noexcept
 {
+    //elementCount * elementSize + headerSize. 超出范围返回-1
     Q_ASSERT(elementSize);
     size_t bytes;
     //_overflow的计算会考虑超出有效范围
@@ -30,7 +31,7 @@ static qsizetype qCalculateBlockSize(qsizetype elementCount, qsizetype elementSi
     return qsizetype(bytes);
 }
 
-static CalculateGrowingBlockSizeResult qCalculateGrowingBlockSize(qsizetype elementCount, qsizetype elementSize, qsizetype headerSize) noexcept
+CalculateGrowingBlockSizeResult qCalculateGrowingBlockSize(qsizetype elementCount, qsizetype elementSize, qsizetype headerSize) noexcept
 {
     CalculateGrowingBlockSizeResult result = { qsizetype(-1), qsizetype(-1) };
     //计算容纳当前数据所需要的大小
@@ -42,9 +43,8 @@ static CalculateGrowingBlockSizeResult qCalculateGrowingBlockSize(qsizetype elem
     size_t morebytes = static_cast<size_t>(qNextPowerOfTwo(quint64(bytes)));
     //计算是使用的无符号整数计算，换算成有符号可能会超出最大正数表示范围
     if (Q_UNLIKELY(qsizetype(morebytes) < 0)) {
-        //zhaoyujie TODO 一半的增长也可能会超出范围啊，这里的逻辑到底啥意思。。。
-        Q_ASSERT(false);
-        bytes +=(morebytes - bytes) / 2;
+        //一半的增长不会超出范围
+        bytes += (morebytes - bytes) / 2;
     }
     else {
         bytes = qsizetype(morebytes);

@@ -3,8 +3,9 @@
 //
 #include "qbytearray.h"
 #include "qstringalgorithms_p.h"
-#include "qlocale_p.h"
 #include "QtCore/qvarlengtharray.h"
+#include "qbytearraymatcher.h"
+#include "QtCore/qlist.h"
 
 QT_BEGIN_NAMESPACE
 
@@ -235,7 +236,7 @@ static constexpr inline bool isUpperCaseAscii(char c)
 
 bool QByteArray::isUpper() const
 {
-    if (!isEmpty()) {
+    if (isEmpty()) {
         return false;
     }
     const char *d = data();
@@ -325,22 +326,19 @@ QByteArray QByteArray::toUpper_helper(QByteArray &a) {
 }
 
 QByteArray QByteArray::trimmed_helper(const QByteArray &a) {
-    Q_ASSERT(false);
     return QStringAlgorithms<const QByteArray>::trimmed_helper(a);
 }
 
 QByteArray QByteArray::trimmed_helper(QByteArray &a) {
-    Q_ASSERT(false); //TODO &&如何销毁原数组内容
+    //TODO &&如何销毁原数组内容
     return QStringAlgorithms<QByteArray>::trimmed_helper(a);
 }
 
 QByteArray QByteArray::simplified_helper(const QByteArray &a) {
-    Q_ASSERT(false);
     return QStringAlgorithms<const QByteArray>::simplified_helper(a);
 }
 
 QByteArray QByteArray::simplified_helper(QByteArray &a) {
-    Q_ASSERT(false);
     return QStringAlgorithms<QByteArray>::simplified_helper(a);
 }
 
@@ -601,5 +599,243 @@ QList<QByteArray> QByteArray::split(char sep) const
     return list;
 }
 
+QByteArray::iterator QByteArray::erase(QByteArray::const_iterator first, QByteArray::const_iterator last)
+{
+    const auto start = std::distance(cbegin(), first);
+    const auto len = std::distance(first, last);
+    remove(start, len);
+    return begin() + start;
+}
+
+QByteArray &QByteArray::replace(qsizetype pos, qsizetype len, QByteArrayView after)
+{
+    if (QtPrivate::q_points_into_range(after.data(), d.data(), d.data() + d.size)) {
+        QVarLengthArray<char> copy(after.data(), after.data() + after.size());  //拷贝一份放到QVarLengthArray中
+        replace(pos, len, QByteArrayView{copy});
+    }
+    if (QtPrivate::q_points_into_range(d.data() + pos, after.data(), after.data() + after.size())) {
+        Q_ASSERT(false);  //源代码没有这一段
+        QVarLengthArray<char> copy(after.data(), after.data() + after.size());
+        replace(pos, len, QByteArrayView{copy});
+    }
+    if (len == after.size() && (pos + len <= size())) {   //替换的长度和要替换的长度是一样的，内存移动就行了
+        detach();
+        memmove(d.data() + pos, after.data(), len * sizeof(char));
+        return *this;
+    }
+    else {   //先删除，再插入。这里效率可以进行优化
+        remove(pos, len);
+        return insert(pos, after);
+    }
+}
+
+QByteArray &QByteArray::replace(QByteArrayView before, QByteArrayView after)
+{
+    const char *b = before.data();
+    qsizetype bsize = before.size();
+    const char *a = after.data();
+    qsizetype asize = after.size();
+
+    if (isNull() || (b== a && bsize == asize)) {
+        return *this;
+    }
+
+    if (QtPrivate::q_points_into_range(a, d.data(), d.data() + d.size)) {
+        QVarLengthArray<char> copy(a, a + asize);
+        return replace(before, QByteArrayView{copy});
+    }
+    if (QtPrivate::q_points_into_range(b, d.data(), d.data() + d.size)) {
+        QVarLengthArray<char> copy(b, b + bsize);
+        return replace(QByteArrayView{copy}, after);
+    }
+
+    QByteArrayMatcher matcher(b, bsize);
+    qsizetype index = 0;
+    qsizetype len = size();
+    char *d = data();  //这里进行了detach的操作
+
+    if (bsize == asize) {  //长度一样，尽管查找拷贝就行
+        if (bsize) {
+            while ((index = matcher.indexIn(*this, index)) != -1) {
+                memcpy(d + index, a, asize);
+                index += bsize;
+            }
+        }
+    }
+    else if (asize < bsize) {
+        size_t to = 0;
+        size_t movestart = 0;
+        size_t num = 0;
+        while ((index = matcher.indexIn(*this, index)) != -1) {
+            if (num) {
+                qsizetype msize = index - movestart;
+                if (msize > 0) {
+                    memmove(d + to, d + movestart, msize);
+                    to += msize;
+                }
+            }
+            else {
+                to = index;
+            }
+            if (asize) {
+                memcpy(d + to, a, asize);
+                to += asize;
+            }
+            index += bsize;
+            movestart = index;
+            num++;
+        }
+        if (num) {
+            qsizetype msize = len - movestart;
+            if (msize > 0) {
+                memmove(d + to, d + movestart, msize);
+            }
+            resize(len - num * (bsize - asize));
+        }
+    }
+    else {
+        while (index != -1) {
+            size_t indices[4096];  //4096的空间循环利用
+            size_t pos = 0;
+            while (pos < 4095) {
+                index = matcher.indexIn(*this, index);
+                if (index == -1) {
+                    break;
+                }
+                indices[pos++] = index;
+                index += bsize;
+                if (!bsize) {
+                    index++;
+                }
+            }
+            if (!pos) {
+                break;
+            }
+            qsizetype adjust = pos * (asize - bsize);
+            if (index != -1) {
+                index += adjust;
+            }
+            qsizetype newlen = len + adjust;
+            qsizetype moveend = len;
+            if (newlen > len) {
+                resize(newlen);
+                len = newlen;
+            }
+            d = this->d.data();
+            while (pos) {
+                pos--;
+                qsizetype movestart = indices[pos] + bsize;
+                qsizetype insertstart = indices[pos] + pos * (asize - bsize);
+                qsizetype moveto = insertstart + asize;
+                memmove(d + moveto, d + movestart, (moveend - movestart));
+                if (asize) {
+                    memcpy(d + insertstart, a, asize);
+                }
+                moveend = movestart - bsize;
+            }
+        }
+    }
+    return *this;
+}
+
+QByteArray &QByteArray::replace(char before, char after) {
+    if (!isEmpty()) {
+        char *i = data();
+        char *e = i + size();
+        for (; i != e; ++i) {
+            if (*i == before) {
+                *i = after;
+            }
+        }
+    }
+    return *this;
+}
+
+QByteArray QByteArray::number(int n, int base)
+{
+    QByteArray s;
+    s.setNum(n, base);
+    return s;
+}
+
+QByteArray QByteArray::number(uint n, int base)
+{
+    QByteArray s;
+    s.setNum(n, base);
+    return s;
+}
+
+QByteArray QByteArray::number(long n, int base)
+{
+    QByteArray s;
+    s.setNum(n, base);
+    return s;
+}
+
+QByteArray QByteArray::number(ulong n, int base)
+{
+    QByteArray s;
+    s.setNum(n, base);
+    return s;
+}
+
+QByteArray QByteArray::number(qlonglong n, int base)
+{
+    QByteArray s;
+    s.setNum(n, base);
+    return s;
+}
+
+QByteArray QByteArray::number(qulonglong n, int base)
+{
+    QByteArray s;
+    s.setNum(n, base);
+    return s;
+}
+
+QByteArray QByteArray::number(double n, char format, int precision)
+{
+    QByteArray s;
+    s.setNum(n, format, precision);
+    return s;
+}
+
+QByteArray QByteArray::repeated(qsizetype times) const
+{
+    if (isEmpty()) {
+        return *this;
+    }
+    if (times == 1) {
+        return *this;
+    }
+    else if (times < 1) {
+        return QByteArray();
+    }
+
+    const qsizetype resultSize = times * size();
+
+    QByteArray result;
+    result.reserve(resultSize);
+    if (result.capacity() != resultSize) {
+        return QByteArray(); //内存不够了，导致分配失败
+    }
+
+    //为了减少拷贝次数，从结果字符串进行拷贝
+    memcpy(result.d.data(), data(), size());
+
+    qsizetype sizeSoFar = size();
+    char *end = result.d.data() + sizeSoFar;
+
+    const qsizetype halfResultSize = resultSize >> 1;
+    while (sizeSoFar <= halfResultSize) {
+        memcpy(end, result.d.data(), sizeSoFar);
+        end += sizeSoFar;
+        sizeSoFar <<= 1;
+    }
+    memcpy(end, result.d.data(), resultSize - sizeSoFar);
+    result.d.data()[resultSize] = '\0';
+    result.d.size = resultSize;
+    return result;
+}
 
 QT_END_NAMESPACE

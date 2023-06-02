@@ -40,6 +40,9 @@ int qstricmp(const char *, const char *);
 int qstrnicmp(const char *, const char *, size_t len);
 int qstrnicmp(const char *, qsizetype, const char *, qsizetype = -1);
 
+int qstrcmp(const char *str1, const char *str2);
+int qstrncmp(const char *str1, const char *str2, size_t len) noexcept;
+
 //zhaoyujie TODO CRC16循环冗余校验 https://blog.csdn.net/weixin_38253113/article/details/81267881
 quint16 qChecksum(QByteArrayView data, Qt::ChecksumType standard = Qt::ChecksumIso3309);
 

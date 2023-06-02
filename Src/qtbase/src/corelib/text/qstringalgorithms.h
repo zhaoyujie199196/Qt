@@ -12,11 +12,9 @@ QT_BEGIN_NAMESPACE
 class QLatin1String;
 class QStringView;
 
+constexpr int lencmp(qsizetype lhs, qsizetype rhs) noexcept;
+
 namespace QtPrivate {
-    constexpr int lencmp(qsizetype lhs, qsizetype rhs) noexcept;
-
-    constexpr int qstrncmp(const char *str1, const char *str2, size_t len) noexcept;
-
     int compareStrings(QLatin1String lhs, QLatin1String rhs, Qt::CaseSensitivity cs = Qt::CaseSensitive) noexcept;
     int compareStrings(QStringView lhs, QStringView rhs, Qt::CaseSensitivity cs = Qt::CaseSensitive) noexcept;
     int compareStrings(QStringView lhs, QLatin1String rhs, Qt::CaseSensitivity cs = Qt::CaseSensitive) noexcept;

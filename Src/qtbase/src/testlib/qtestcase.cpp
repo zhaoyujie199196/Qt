@@ -65,3 +65,9 @@ bool QTest::compare_helper(bool success, const char *failMsg, char *val1, char *
 {
     return QTestResult::compare(success, failMsg, val1, val2, actual, expected, file, line);
 }
+
+bool QTest::compare_string_helper(const char *t1, const char *t2, const char *actual, const char *expected,
+                                  const char *file, int line) {
+    return compare_helper(qstrcmp(t1, t2) == 0, "Compare strings are not the same",
+                          toString(t1), toString(t2), actual, expected, file, line);
+}

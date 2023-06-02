@@ -3,10 +3,10 @@
 //
 
 #include "qtestresult_p.h"
-#include <QtCore/qglobal.h>
 #include <stdio.h>
+#include <QtCore/qglobal.h>
+#include <QtCore/qobjectdefs.h>
 #include <QtTest/qtestdata.h>
-
 
 QT_BEGIN_NAMESPACE
 

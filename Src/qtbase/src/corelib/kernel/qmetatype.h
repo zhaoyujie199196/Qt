@@ -8,10 +8,12 @@
 #include <QtCore/qglobal.h>
 #include <QtCore/qchar.h>
 #include <QtCore/qatomic.h>
+#include <QtCore/qbytearray.h>
 #include <array>
 #include <string>
 #include <string_view>
 #include "qmetatypenormalizer_p.h"
+#include "qmetaobject.h"
 
 QT_BEGIN_NAMESPACE
 
@@ -120,7 +122,7 @@ namespace QtPrivate
         //默认构造函数
         static constexpr QMetaTypeInterface::DefaultCtrFn getDefaultCtr() {
             //std::is_default_constructible_v 是否有无参数构造函数
-            if (std::is_default_constructible_v<T>) {
+            if constexpr (std::is_default_constructible_v<T>) {
                 return [](const QMetaTypeInterface *, void *address)->void {
                     //函数是void *类型，在address上原地构造
                     new(address) T();
@@ -330,6 +332,13 @@ int qRegisterNormalizedMetaType(const char *normalizedTypeName)
     return id;
 }
 
+template <typename T>
+int qRegisterMetaType(const char *typeName)
+{
+    QByteArray normalizedTypeName = QMetaObject::normalizedType(typeName);
+    return qRegisterNormalizedMetaType<T>(normalizedTypeName);
+}
+
 
 #ifndef Q_MOC_RUN
 #define Q_DECLARE_METATYPE(TYPE) Q_DECLARE_METATYPE_IMPL(TYPE)
@@ -353,8 +362,9 @@ int qRegisterNormalizedMetaType(const char *normalizedTypeName)
                 return id; \
             }                         \
             else {                    \
-                assert(false);        \
-                return 0; \
+                const int newId = qRegisterMetaType< TYPE >(#TYPE);             \
+                metatype_id.storeRelease(newId);                                \
+                return newId;  \
             } \
         } \
     }; \

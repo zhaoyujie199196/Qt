@@ -6,7 +6,6 @@
 #define QNAMESPACE_H
 
 #include <QtCore/qglobal.h>
-#include <QtCore/qflags.h>
 
 QT_BEGIN_NAMESPACE
 

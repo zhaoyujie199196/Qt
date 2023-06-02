@@ -294,4 +294,10 @@ template <typename T>
 constexpr inline const T &qBound(const T &min, const T &val, const T &max)
 { return qMax(min, qMin(max, val)); }
 
+#include <QtCore/qtypeinfo.h>
+
+#include <QtCore/qflags.h>
+
+#include <QtCore/qatomic.h>
+
 #endif //QGLOBAL_H

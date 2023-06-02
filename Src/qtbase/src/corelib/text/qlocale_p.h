@@ -73,6 +73,18 @@ public:
     quint8 m_grouping_least : 3;
 };
 
+enum { AsciiSpaceMask = (1u << (' ' - 1)) |
+                        (1u << ('\t' - 1)) |   // 9: HT - horizontal tab
+                        (1u << ('\n' - 1)) |   // 10: LF - line feed
+                        (1u << ('\v' - 1)) |   // 11: VT - vertical tab
+                        (1u << ('\f' - 1)) |   // 12: FF - form feed
+                        (1u << ('\r' - 1)) };  // 13: CR - carriage return
+
+constexpr inline bool ascii_isspace(uchar c)
+{
+    return c >= 1u && c <= 32u && (AsciiSpaceMask >> uint(c - 1)) & 1u;
+}
+
 QT_END_NAMESPACE
 
 #endif //QLOCALE_P_H
