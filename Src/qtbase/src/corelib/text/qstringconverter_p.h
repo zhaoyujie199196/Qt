@@ -19,6 +19,7 @@ QT_BEGIN_NAMESPACE
  * f5 : 11110101
  * */
 
+class QStringView;
 struct QUtf8BaseTraits
 {
     static const bool isTrusted = false;
@@ -102,16 +103,6 @@ struct QUtf8BaseTraits
 
     static void appendUcs4(char32_t *&ptr, uint uc)
     { *ptr++ = char32_t(uc); }
-};
-
-struct QUtf8
-{
-    static QByteArray convertFromUnicode(QStringView in);
-    static QByteArray convertFromUnicode(QStringView in, QStringConverterBase::State *state);
-    static char *convertFromUnicode(char *out, QStringView in, QStringConverter::State *state);
-
-    static QString convertToUnicode(QByteArrayView in);
-    static QChar *convertToUnicode(QChar *buffer, QByteArrayView in) noexcept;
 };
 
 namespace QUtf8Functions
@@ -278,8 +269,53 @@ namespace QUtf8Functions
         Traits::advanceByte(src, charsNeeded - 1);
         return charsNeeded;
     }
-
 }
+
+enum DataEndianness {  //字节序
+    DetectEndianness,  //需要探测
+    BigEndianness,     //大端
+    LittleEndianness,  //小端
+};
+
+struct QUtf8
+{
+    static QByteArray convertFromUnicode(QStringView in);
+    static QByteArray convertFromUnicode(QStringView in, QStringConverterBase::State *state);
+    static char *convertFromUnicode(char *out, QStringView in, QStringConverter::State *state);
+
+    static QString convertToUnicode(QByteArrayView in);
+    static QChar *convertToUnicode(QChar *buffer, QByteArrayView in) noexcept;
+    static QString convertToUnicode(QByteArrayView in, QStringConverter::State *state);
+    static QChar *convertToUnicode(QChar *out, QByteArrayView in, QStringConverter::State *state);
+};
+
+struct QUtf16
+{
+    static QString convertToUnicode(QByteArrayView, QStringConverter::State *, DataEndianness = DetectEndianness);
+    static QChar *convertToUnicode(QChar *out, QByteArrayView, QStringConverter::State *state, DataEndianness endian);
+    static QByteArray convertFromUnicode(QStringView, QStringConverter::State *, DataEndianness = DetectEndianness);
+    static char *convertFromUnicode(char *out, QStringView in, QStringConverter::State *state, DataEndianness endian);
+};
+
+struct QUtf32
+{
+    static QChar *convertToUnicode(QChar *out, QByteArrayView, QStringConverter::State *state, DataEndianness endian);
+    static QString convertToUnicode(QByteArrayView, QStringConverter::State *, DataEndianness = DetectEndianness);
+    static QByteArray convertFromUnicode(QStringView, QStringConverter::State *, DataEndianness = DetectEndianness);
+    static char *convertFromUnicode(char *put, QStringView in, QStringConverter::State *state, DataEndianness endian);
+};
+
+struct QLocal8Bit
+{
+#if !defined(Q_OS_WIN) || defined(QT_BOOSTRAPPED)
+    static QString convertToUnicode(QByteArrayView in, QStringConverter::State *state)
+    { return QUtf8::convertToUnicode(in, state); }
+    static QByteArray convertFromUnicode(QStringView in, QStringConverter::State *state)
+    { return QUtf8::convertFromUnicode(in, state); }
+#else
+    static_assert(false);
+#endif
+};
 
 QT_END_NAMESPACE
 

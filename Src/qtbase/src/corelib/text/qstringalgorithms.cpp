@@ -65,7 +65,7 @@ namespace QtPrivate {
         return lencmp(lSize, rSize);   //字符串的前面相同，取长的
     }
 
-//unicode的字符比较，char16_t
+    //unicode的字符比较，char16_t
     static int ucstrncmp(const QChar *a, const QChar *b, size_t l) {
         const QChar *end = a + l;
         while (a < end) {
@@ -74,6 +74,21 @@ namespace QtPrivate {
             }
             ++a;
             ++b;
+        }
+        return 0;
+    }
+
+    static int ucstrncmp(const QChar *a, const uchar *c, size_t l)
+    {
+        const char16_t *uc = reinterpret_cast<const char16_t *>(a);
+        const char16_t *e = uc + l;
+        while (uc < e) {
+            int diff = *uc - *c;
+            if (diff) {
+                return diff;
+            }
+            uc++;
+            c++;
         }
         return 0;
     }
@@ -87,6 +102,12 @@ namespace QtPrivate {
         return cmp ? cmp : lencmp(alen, blen);
     }
 
+    static int ucstrcmp(const QChar *a, size_t alen, const char *b, size_t blen) {
+        const size_t l = qMin(alen, blen);
+        const int cmp = ucstrncmp(a, reinterpret_cast<const uchar *>(b), l);
+        return cmp ? cmp : lencmp(alen, blen);
+    }
+
     static int ucstricmp(const QChar *a, const QChar *ae, const QChar *b, const QChar *be) {
         //同一块地址
         if (a == b) {
@@ -97,7 +118,9 @@ namespace QtPrivate {
         char32_t alast = 0;
         char32_t blast = 0;
         while (a < e) {
-            int diff = foldCase(a->unicode(), alast) - foldCase(b->unicode(), blast);
+            // 注意这里使用的是foldCase，没有直接使用toLower。toLower只适用于a-z
+            // http://www.lvesu.com/blog/es/case-folding.html
+            int diff = QChar::foldCase(a->unicode(), alast) - QChar::foldCase(b->unicode(), blast);
             if ((diff)) {
                 return diff;
             }
@@ -113,6 +136,28 @@ namespace QtPrivate {
         } else {
             return 1;
         }
+    }
+
+    static int ucstricmp(const QChar *a, const QChar *ae, const char *b, const char *be) {
+        auto e = ae;
+        if (be - b < ae - a) {
+            e = a + (be - b);
+        }
+        while (a < e) {
+            int diff = QChar::foldCase(a->unicode()) - QChar::foldCase(char16_t{uchar(*b)});
+            if ((diff)) {
+                return diff;
+            };
+            ++a;
+            ++b;
+        }
+        if (a == ae) {
+            if (b == be) {
+                return 0;
+            }
+            return -1;
+        }
+        return 1;
     }
 
     int compareStrings(QLatin1String lhs, QLatin1String rhs, Qt::CaseSensitivity cs) noexcept {
@@ -140,33 +185,16 @@ namespace QtPrivate {
     }
 
     int compareStrings(QStringView lhs, QLatin1String rhs, Qt::CaseSensitivity cs) noexcept {
-        Q_ASSERT(false);
-        return 0;
+        if (cs == Qt::CaseSensitive) {
+            return ucstrcmp(lhs.begin(), lhs.size(), rhs.begin(), rhs.size());
+        }
+        else {
+            return ucstricmp(lhs.begin(), lhs.end(), rhs.begin(), rhs.end());
+        }
     }
 
     int compareStrings(QLatin1String lhs, QStringView rhs, Qt::CaseSensitivity cs) noexcept {
-        Q_ASSERT(false);
-        return 0;
-    }
-
-    template<typename Haystack, typename Needle>
-    bool qt_starts_with_impl(Haystack haystack, Needle needle, Qt::CaseSensitivity cs) noexcept {
-        if (haystack.isNull()) {
-            return needle.isNull();
-        }
-        const auto haystackLen = haystack.size();
-        const auto needleLen = needle.size();
-        if (haystackLen == 0) {
-            return needleLen == 0;
-        }
-        if (needleLen > haystackLen) {
-            return false;
-        }
-        return QtPrivate::compareStrings(haystack.left(needleLen), needle, cs) == 0;
-    }
-
-    bool startsWith(QLatin1String haystack, QLatin1String needle, Qt::CaseSensitivity cs) noexcept {
-        return qt_starts_with_impl(haystack, needle, cs);
+        return -compareStrings(rhs, lhs, cs);
     }
 }
 

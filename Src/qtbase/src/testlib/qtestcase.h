@@ -11,6 +11,8 @@
 #include <QtTest/qtestdata.h>
 #include <QtCore/qmetatype.h>
 #include <QtCore/QByteArray>
+#include <QtCore/QString>
+#include <QtCore/QStringView>
 
 QT_BEGIN_NAMESPACE
 
@@ -42,6 +44,13 @@ do {\
 #define QFETCH(Type, name) \
     Type name = *static_cast<Type *>(QTest::qData(#name, ::qMetaTypeId<typename std::remove_cv<Type>::type>()))
 
+#define QTEST(actual, testElement) \
+    do {                           \
+        if (!QTest::qTest(actual, testElement, #actual, #testElement, __FILE__, __LINE__)) {\
+            return;                \
+        }                          \
+    } while (false)
+
 class QTestData;
 namespace QTest {
     int qExec(QObject *object);
@@ -62,6 +71,8 @@ namespace QTest {
 
     QTestData &newRow(const char *dataTag);
     QTestData &addRow(const char *format, ...);
+
+    void *qElementData(const char *elementName, int metaTypeId);
 
     bool qVerify(bool statement, const char *statementStr, const char *description, const char *file, int line);
 
@@ -91,6 +102,14 @@ namespace QTest {
 
     //比较辅助函数
     bool compare_helper(bool success, const char *failMsg, char *val1, char *val2, const char *actual, const char *expected, const char *file, int line);
+
+    bool qCompare(QStringView t1, QStringView t2, const char *actual, const char *expected, const char *file, int line);
+//    bool qCompare(QStringView t1, const QLatin1String &t2, const char *actual, const char *expected, const char *file, int line);
+//    bool qCompare(const QLatin1String &t1, QStringView t2, const char *actual, const char *expected, const char *file, int line);
+    bool qCompare(const QString &t1, const QString &t2, const char *actual, const char *expected, const char *file, int line)
+    {
+        return qCompare(QStringView(t1), QStringView(t2), actual, expected, file, line);
+    }
 
     template <typename T>
     inline bool qCompare(const T &t1, const T &t2, const char *actual, const char *expected, const char *file, int line) {
@@ -170,6 +189,12 @@ namespace QTest {
     inline bool qCompare(const char *t1, char *t2, const char *actual, const char *expected, const char *file, int line)
     {
         return compare_string_helper(t1, t2, actual, expected, file, line);
+    }
+
+    template <typename T>
+    inline bool qTest(const T &actual, const char *elementName, const char *actualStr, const char *expected, const char *file, int line)
+    {
+        return qCompare(actual, *static_cast<const T *>(QTest::qElementData(elementName, qMetaTypeId<T>())), actualStr, expected, file, line);
     }
 
 #define QCOMPARE(actual, expected) \

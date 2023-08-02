@@ -388,14 +388,18 @@ public:
         ScriptCount
     };
 
-
     constexpr Q_EXPLICIT QChar() noexcept : ucs(0) {}
     constexpr Q_EXPLICIT QChar(ushort rc) noexcept : ucs(rc) {}
+    constexpr Q_EXPLICIT QChar(uchar c, uchar r) noexcept : ucs(char16_t ((r << 8) | c)) {}
+    constexpr Q_EXPLICIT QChar(short rc) noexcept : ucs(char16_t(rc)) {}
     constexpr Q_EXPLICIT QChar(uint rc) noexcept : ucs((Q_ASSERT(rc <= 0xffff), char16_t(rc))) {}
     constexpr Q_EXPLICIT QChar(int rc) noexcept : QChar(uint(rc)) {}
     constexpr Q_EXPLICIT QChar(SpecialCharacter s) noexcept : ucs(char16_t(s)) {}
     constexpr Q_EXPLICIT QChar(QLatin1Char ch) noexcept : QChar(ch.unicode()) {}
     constexpr Q_EXPLICIT QChar(char16_t ch) noexcept : ucs(ch) {}
+
+    static constexpr QChar fromUcs2(char16_t c) noexcept { return QChar{c}; }
+    static constexpr inline auto fromUcs4(char32_t c) noexcept;
 
     inline Category category() const noexcept {return QChar::category(ucs);}
     inline Direction direction() const noexcept {return QChar::direction(ucs);}
@@ -457,6 +461,11 @@ public:
     constexpr inline bool isLowSurrogate() const noexcept {return QChar::isLowSurrogate(ucs);}
     constexpr inline bool isSurrogate() const noexcept {return QChar::isSurrogate(ucs);}
 
+    constexpr inline uchar cell() const noexcept { return uchar(ucs & 0xff); }
+    constexpr inline uchar row() const noexcept { return uchar(ucs>>8) & 0xff; }
+    constexpr inline void setCell(uchar acell) noexcept { ucs = char16_t ((ucs & 0xff00) + acell);}
+    constexpr inline void setRow(uchar arow) noexcept { ucs = char16_t ((char16_t(arow) << 8) + (ucs & 0xff)); }
+
     static Category category(char32_t ucs4) noexcept Q_DECL_CONST_FUNCTION;
     static Direction direction(char32_t ucs4) noexcept Q_DECL_CONST_FUNCTION;
     static JoiningType joiningType(char32_t ucs4) noexcept Q_DECL_CONST_FUNCTION;
@@ -512,10 +521,16 @@ public:
     static UnicodeVersion unicodeVersion(char32_t ucs4) noexcept Q_DECL_CONST_FUNCTION;
     static Decomposition decompositionTag(char32_t ucs4) noexcept Q_DECL_CONST_FUNCTION;
 
+    constexpr inline char toLatin1() const noexcept { return ucs > 0xff ? '\0' : char(ucs); }
     constexpr inline char16_t unicode() const noexcept {return ucs;}
     constexpr inline char16_t& unicode() noexcept {return ucs;}
 
     bool compare(QChar c) const noexcept;
+
+    static char32_t foldCase(const char16_t *ch, const char16_t *start);
+    static char32_t foldCase(char32_t ch, char32_t &last) noexcept;
+    static char16_t foldCase(char16_t  ch) noexcept;
+    static QChar foldCase(QChar ch) noexcept;
 
 private:
     static bool isLetter_helper(char32_t ucs4) noexcept Q_DECL_CONST_FUNCTION;
@@ -525,6 +540,8 @@ private:
 private:
     char16_t ucs;
 };
+
+
 
 QT_END_NAMESPACE
 

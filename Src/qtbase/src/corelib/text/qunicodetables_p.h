@@ -58,10 +58,12 @@ namespace QUnicodeTables
         ushort script : 8;
     };
 
-    LineBreakClass lineBreakClass(char32_t ucs4) noexcept;
+    inline LineBreakClass lineBreakClass(char32_t ucs4) noexcept;
     inline LineBreakClass lineBreakClass(QChar ch) noexcept {
         return lineBreakClass(ch.unicode());
     }
+
+    Q_DECL_CONST_FUNCTION inline const Properties *qGetProp(char32_t ucs4) noexcept;
 }
 
 QT_END_NAMESPACE

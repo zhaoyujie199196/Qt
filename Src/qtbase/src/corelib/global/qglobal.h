@@ -10,7 +10,11 @@
 #include <cstddef>
 #include <type_traits>
 
+#include <QtCore/qconfig.h>
+#include <QtCore/qtcore-config.h>
+
 #include "qcompilerdetection.h"
+#include "qprocessordetection.h"
 
 #define QT_PREPEND_NAMESPACE(name) ::name
 
@@ -27,6 +31,18 @@
 #define Q_EXPLICIT
 #endif
 
+//禁止内联
+#ifdef Q_CC_MSVC
+#  define Q_NEVER_INLINE __declspec(noinline)
+#  define Q_ALWAYS_INLINE __forceinline
+#elif defined(Q_CC_GNU)
+#  define Q_NEVER_INLINE __attribute__((noinline))
+#  define Q_ALWAYS_INLINE inline __attribute__((always_inline))
+#else
+#  define Q_NEVER_INLINE
+#  define Q_ALWAYS_INLINE inline
+#endif
+
 //禁止拷贝构造
 #define Q_DISABLE_COPY(Class) \
     Class(const Class &) = delete; \
@@ -38,6 +54,7 @@
     Class(Class &&) = delete;      \
     Class &operator=(Class &&) = delete;
 
+#define QT_CONFIG(feature) (1/QT_FEATURE_##feature == 1)
 
 //将非const对象转变为const对象
 template <typename T>
@@ -179,7 +196,6 @@ template <>    struct QIntegerForSize<8> {typedef quint64 Unsigned; typedef qint
 template <>    struct QIntegerForSize<16>{__extension__ typedef unsigned __int128 Unsigned; __extension__ typedef __int128 Signed; };
 #endif
 
-//zhaoyujie TODO 这段代码啥意思？qptrdiff是qint8类型？
 template <class T>
 struct QIntegerForSizeof : QIntegerForSize<sizeof(T)>{ };
 typedef QIntegerForSizeof<void *>::Unsigned quintptr;
@@ -293,6 +309,20 @@ constexpr inline QTypeTraits::Promoted<T, U> qMax(const T &a, const U &b)
 template <typename T>
 constexpr inline const T &qBound(const T &min, const T &val, const T &max)
 { return qMax(min, qMin(max, val)); }
+
+// printf格式检查
+// enable gcc warnings for printf-style functions
+#if defined(Q_CC_GNU) && !defined(__INSURE__)
+#  if defined(Q_CC_MINGW) && !defined(Q_CC_CLANG)
+#    define Q_ATTRIBUTE_FORMAT_PRINTF(A, B) \
+         __attribute__((format(gnu_printf, (A), (B))))
+#  else
+#    define Q_ATTRIBUTE_FORMAT_PRINTF(A, B) \
+         __attribute__((format(printf, (A), (B))))
+#  endif
+#else
+#  define Q_ATTRIBUTE_FORMAT_PRINTF(A, B)
+#endif
 
 #include <QtCore/qtypeinfo.h>
 

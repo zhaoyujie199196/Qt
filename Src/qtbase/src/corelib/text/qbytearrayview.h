@@ -154,7 +154,7 @@ public:
     template <typename Byte, size_t size, if_compatible_byte<Byte> = true>
     constexpr static QByteArrayView fromArray(const Byte(&data)[size]) noexcept
     { return QByteArrayView(data, size); }
-    inline QByteArray toByteArray() const;
+    QByteArray toByteArray() const;
 
     constexpr qsizetype size() const noexcept {return m_size;}
     constexpr const_pointer data() const noexcept {return m_data;}

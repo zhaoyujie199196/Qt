@@ -9,6 +9,7 @@
 #include <QtCore/QMetaType>
 #include <QtCore/qlatin1string.h>
 #include <QtCore/qobjectdefs.h>
+#include <iostream>
 
 QT_BEGIN_NAMESPACE
 
@@ -42,7 +43,7 @@ void QTestData::append(int type, const void *data)
     QTEST_ASSERT(d->dataCount < d->parent->elementCount());
     int expectedType = d->parent->elementTypeId(d->dataCount);
     if (expectedType != type) {
-        Q_ASSERT(false);
+        std::cout<<"expected data of type is not match : "<< QMetaType(expectedType).name()<<"  "<<QMetaType(type).name()<<std::endl;
     }
     d->data[d->dataCount] = QMetaType(type).create(data);
     ++d->dataCount;

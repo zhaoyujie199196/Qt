@@ -11,6 +11,7 @@
 QT_BEGIN_NAMESPACE
 
 class QTestData;
+class QStringView;
 class Q_TESTLIB_EXPORT QTestResult
 {
 public:
@@ -18,6 +19,7 @@ public:
     static QTestData *currentTestData();
     static void setCurrentTestData(QTestData *testData);
     static bool compare(bool success, const char *failMsg, char *val1, char *val2, const char *actual, const char *expected, const char *file, int line);
+    static bool compare(bool success, const char *failMsg, QStringView val1, QStringView val2, const char *actual, const char *expected, const char *file, int line);
 };
 
 QT_END_NAMESPACE

@@ -1,0 +1,1 @@
+#include "../../../src/corelib/qcore-config_p.h"

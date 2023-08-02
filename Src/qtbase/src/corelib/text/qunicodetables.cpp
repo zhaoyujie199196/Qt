@@ -13660,7 +13660,7 @@ static const unsigned short specialCaseMap[] = {
             0xd869, 0xde00
     };
 
-Q_DECL_CONST_FUNCTION static inline const Properties *qGetProp(char32_t ucs4) noexcept
+Q_DECL_CONST_FUNCTION inline const Properties *QUnicodeTables::qGetProp(char32_t ucs4) noexcept
 {
     Q_ASSERT(ucs4 <=QChar::LastValidCodePoint);
     if (ucs4 < 0x11000) {
@@ -13671,7 +13671,7 @@ Q_DECL_CONST_FUNCTION static inline const Properties *qGetProp(char32_t ucs4) no
     }
 }
 
-LineBreakClass lineBreakClass(char32_t ucs4) noexcept {
+inline LineBreakClass lineBreakClass(char32_t ucs4) noexcept {
     return static_cast<LineBreakClass>(qGetProp(ucs4)->lineBreakClass);
 }
 

@@ -7,6 +7,7 @@
 #include <QtCore/qglobal.h>
 #include <QtCore/qobjectdefs.h>
 #include <QtTest/qtestdata.h>
+#include <QtCore/QStringView>
 
 QT_BEGIN_NAMESPACE
 
@@ -44,6 +45,13 @@ bool QTestResult::compare(bool success, const char *failMsg, char *val1, char *v
     Q_ASSERT(success);
     delete []val1;
     delete []val2;
+    return success;
+}
+
+bool QTestResult::compare(bool success, const char *failMsg, QStringView val1, QStringView val2, const char *actual,
+                          const char *expected, const char *file, int line)
+{
+    Q_ASSERT(success);
     return success;
 }
 

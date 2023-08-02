@@ -7,6 +7,7 @@
 
 #include "qglobal.h"
 
-
+#include <QtCore/private/qconfig_p.h>
+#include <QtCore/private/qtcore-config_p.h>
 
 #endif //QGLOBAL_P_H

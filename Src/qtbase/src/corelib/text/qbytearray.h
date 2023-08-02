@@ -26,6 +26,7 @@ using QByteArrayData = QArrayDataPointer<char>;
 
 class QByteArray
 {
+    friend class QString;
 public:
     using DataPointer = QByteArrayData;
 private:

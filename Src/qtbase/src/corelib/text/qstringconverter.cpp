@@ -3,6 +3,9 @@
 //
 #include "qstringconverter.h"
 #include "qstringconverter_p.h"
+#include "qstringview.h"
+#include <QtCore/qsysinfo.h>
+#include <QtCore/qendian.h>
 
 QT_BEGIN_NAMESPACE
 
@@ -418,6 +421,10 @@ static void simdCompareAscii(const char8_t *&, const char8_t *, const char16_t *
 }
 #endif
 
+enum {
+    HeaderDone = 1,
+};
+
 void QStringConverter::State::clear()
 {
     if (clearFn) {
@@ -513,6 +520,612 @@ QChar *QUtf8::convertToUnicode(QChar *buffer, QByteArrayView in) noexcept
     }
 
     return reinterpret_cast<QChar *>(dst);
+}
+
+QString QUtf8::convertToUnicode(QByteArrayView in, QStringConverter::State *state)
+{
+    QString result(in.size() + 1, Qt::Uninitialized);
+    QChar *end = convertToUnicode(result.data(), in, state);
+    result.truncate(end - result.constData());
+    return result;
+}
+
+QChar *QUtf8::convertToUnicode(QChar *out, QByteArrayView in, QStringConverter::State *state)
+{
+    Q_ASSERT(false);
+    return out;
+}
+
+static bool writeBom(QStringConverter::State *state) {
+    //需要些Dom头，但是Dom头还未写入
+    return !(state->internalState & HeaderDone) && state->flags & QStringConverter::Flag::WriteBom;
+}
+
+QByteArray QUtf16::convertFromUnicode(QStringView in, QStringConverter::State *state, DataEndianness endian)
+{
+    Q_ASSERT(false);
+
+    qsizetype length = 2 * in.size();
+    if (writeBom(state)) {
+        length += 2;
+    }
+    QByteArray d(length, Qt::Uninitialized);
+    char *end = convertFromUnicode(d.data(), in, state, endian);
+    Q_ASSERT(end - d.constData() == d.length());
+    Q_UNLIKELY(end);
+    return d;
+}
+
+//返回的是end
+char *QUtf16::convertFromUnicode(char *out, QStringView in, QStringConverter::State *state, DataEndianness endian) {
+    Q_ASSERT(false);
+
+    Q_ASSERT(state);
+    if (endian = DetectEndianness) {
+        endian = (QSysInfo::ByteOrder == QSysInfo::BigEndian) ? BigEndianness : LittleEndianness;
+        if (writeBom(state)) {
+            QChar bom(QChar::ByteOrderMark);
+            if (endian == BigEndianness) {
+                qToBigEndian(bom.unicode(), out);
+            }
+            else {
+                qToLittleEndian(bom.unicode(), out);
+            }
+            out += 2;
+        }
+    }
+    if (endian == BigEndianness) {
+        qToBigEndian<ushort>(in.data(), in.length(), out);
+    }
+    else {
+        qToLittleEndian<ushort>(in.data(), in.length(), out);
+    }
+    state->remainingChars = 0;
+    state->internalState != HeaderDone;
+    return out + 2 * in.length();
+}
+
+QString QUtf16::convertToUnicode(QByteArrayView in, QStringConverter::State *state, DataEndianness endian) {
+    QString result((in.size() + 1) >> 1, Qt::Uninitialized);
+    QChar *qch = convertToUnicode(result.data(), in, state, endian);
+    result.truncate(qch - result.constData());
+    return result;
+}
+
+QChar *QUtf16::convertToUnicode(QChar *out, QByteArrayView in, QStringConverter::State *state, DataEndianness endian) {
+    qsizetype len = in.size();
+    const char *chars = in.data();
+    Q_ASSERT(state);
+
+    if (endian == DetectEndianness) {
+        endian = (DataEndianness)state->state_data[Endian];
+    }
+    const char *end = chars + len;
+    if (state->remainingChars + len < 2) {
+        Q_ASSERT(false); //zhaoyujie TODO remainingChars是Dom？
+        if (len) {
+            Q_ASSERT(state->remainingChars == 0 && len == 1);
+            state->remainingChars = 1;
+            state->state_data[Data] = *chars;
+        }
+        return out;
+    }
+
+    bool headerdone = state && state->internalState & HeaderDone;
+    if (state->flags & QStringConverter::Flag::ConvertInitialBom) {
+        headerdone = true;
+    }
+
+    if (!headerdone || state->remainingChars) {
+        uchar buf;
+        if (state->remainingChars) {
+            buf = state->state_data[Data];
+        }
+        else {
+            buf = *chars++;
+        }
+        state->internalState |= HeaderDone;
+        QChar ch(buf, *chars++);
+        if (endian == DetectEndianness) {
+            if (ch == QChar::ByteOrderSwapped) {
+                endian = BigEndianness;
+            }
+            else if (ch == QChar::ByteOrderMark) {
+                endian = LittleEndianness;
+            }
+            else {
+                if (QSysInfo::ByteOrder == QSysInfo::BigEndian) {
+                    endian = BigEndianness;
+                }
+                else {
+                    endian = LittleEndianness;
+                }
+            }
+        }
+        if (endian == BigEndianness) {
+            ch = QChar::fromUcs2((ch.unicode() >> 8) | ((ch.unicode() & 0xff) << 8));
+        }
+        if (headerdone || ch != QChar::ByteOrderMark) {
+            *out++ = ch;
+        }
+    }
+    else if (endian == DetectEndianness) {
+        endian = (QSysInfo::ByteOrder == QSysInfo::BigEndian) ? BigEndianness : LittleEndianness;
+    }
+    int nPairs = (end - chars) >> 1;
+    if (endian == BigEndianness) {
+        qFromBigEndian<ushort>(chars, nPairs, out);
+    }
+    else {
+        qFromLittleEndian<ushort>(chars, nPairs, out);
+    }
+    out += nPairs;
+
+    state->state_data[Endian] = endian;
+    state->remainingChars = 0;
+    if ((end - chars) & 1) {
+        if (state->flags & QStringConverter::Flag::Stateless) {
+            *out++ = state->flags & QStringConverter::Flag::ConvertInvalidToNull ? QChar::Null : QChar::ReplacementCharacter;
+        }
+        else {
+            state->remainingChars = 1;
+            state->state_data[Data] = *(end - 1);
+        }
+    }
+    else {
+        state->state_data[Data] = 0;
+    }
+    return out;
+}
+QByteArray QUtf32::convertFromUnicode(QStringView in, QStringConverter::State *state, DataEndianness endian) {
+    Q_ASSERT(false);
+    int length = 4 * in.size();
+    if (writeBom(state)) {
+        length += 4;
+    }
+    QByteArray ba(length, Qt::Uninitialized);
+    char *end = convertFromUnicode(ba.data(), in, state, endian);
+    Q_ASSERT(end - ba.constData() == length);
+    Q_UNUSED(end);
+    return ba;
+}
+
+char *QUtf32::convertFromUnicode(char *out, QStringView in, QStringConverter::State *state, DataEndianness endian) {
+    Q_ASSERT(false);
+
+    Q_ASSERT(state);
+
+    qsizetype length = 4 * in.length();
+    if (writeBom(state)) {
+        length += 4;
+    }
+    if (endian == DetectEndianness) {
+        endian = (QSysInfo::ByteOrder == QSysInfo::BigEndian) ? BigEndianness : LittleEndianness;
+    }
+    if (writeBom(state)) {
+        if (endian == BigEndianness) {
+            out[0] = 0;
+            out[1] = 0;
+            out[2] = (char)0xfe;
+            out[3] = (char)0xff;
+        }
+        else {
+            out[0] = (char)0xff;
+            out[1] = (char)0xfe;
+            out[2] = 0;
+            out[3] = 0;
+        }
+        out += 4;
+        state->internalState != HeaderDone;
+    }
+
+    const QChar *uc = in.data();
+    const QChar *end = in.data() + in.length();
+    QChar ch;
+    uint ucs4;
+    if (state->remainingChars == 1) {
+        auto character = state->state_data[Data];
+        Q_ASSERT(character <= 0xFFFF);
+        ch = QChar(character);
+        state->remainingChars = 0;
+        goto decode_surrogate;
+    }
+
+    while (uc < end) {
+        ch = *uc++;
+        if (Q_LIKELY(!ch.isSurrogate())) {
+            ucs4 = ch.unicode();
+        }
+        else if (Q_LIKELY(ch.isHighSurrogate())) {
+decode_surrogate:
+            if (uc == end) {
+                if (state->flags & QStringConverter::Flag::Stateless) {
+                    ucs4 = state->flags & QStringConverter::Flag::ConvertInvalidToNull ? 0 : QChar::ReplacementCharacter;
+                }
+                else {
+                    state->remainingChars = 1;
+                    state->state_data[Data] = ch.unicode();
+                    return out;
+                }
+            }
+            else if (uc->isLowSurrogate()) {
+                ucs4 = QChar::surrogateToUcs4(ch, *uc++);
+            }
+            else {
+                ucs4 = state->flags & QStringConverter::Flag::ConvertInvalidToNull ? 0 : QChar::ReplacementCharacter;
+            }
+        }
+        else {
+            ucs4 = state->flags & QStringConverter::Flag::ConvertInvalidToNull ? 0 : QChar::ReplacementCharacter;
+        }
+        if (endian == BigEndianness) {
+            qToBigEndian(ucs4, out);
+        }
+        else {
+            qToLittleEndian(ucs4, out);
+        }
+        out += 4;
+    }
+    return out;
+}
+
+QString QUtf32::convertToUnicode(QByteArrayView in, QStringConverter::State *state, DataEndianness endian) {
+    Q_ASSERT(false);
+
+    QString result;
+    result.resize((in.size() + 7) >> 1);
+    QChar *end = convertToUnicode(result.data(), in, state, endian);
+    result.truncate(end - result.constData());
+    return result;
+}
+
+QChar *QUtf32::convertToUnicode(QChar *out, QByteArrayView in, QStringConverter::State *state, DataEndianness endian) {
+    Q_ASSERT(false);
+
+    qsizetype len = in.size();
+    const char *chars = in.data();
+
+    Q_ASSERT(state);
+    if (endian == DetectEndianness) {
+        endian = (DataEndianness)state->state_data[Endian];
+    }
+
+    const char *end = chars + len;
+
+    uchar tuple[4];
+    memcpy(tuple, &state->state_data[Data], 4);
+
+    if (state->remainingChars + len < 4) {
+        if (len) {
+            while (chars < end) {
+                tuple[state->remainingChars] = *chars;
+                ++state->remainingChars;
+                ++chars;
+            }
+            Q_ASSERT(state->remainingChars < 4);
+            memcpy(&state->state_data[Data], tuple, 4);
+        }
+        return out;
+    }
+
+    bool headerdone = state->internalState & HeaderDone;
+    if (state->flags & QStringConverter::Flag::ConvertInitialBom) {
+        headerdone = true;
+    }
+    int num = state->remainingChars;
+    state->remainingChars = 0;
+
+    if (!headerdone || endian == DetectEndianness || num) {
+        while (num < 4) {
+            tuple[num++] = *chars++;
+        }
+        if (endian == DetectEndianness) {
+            if (tuple[0] == 0xff && tuple[1] == 0xfe && tuple[2] == 0 && tuple[3] == 0) {
+                endian = LittleEndianness;
+            }
+            else if (tuple[0] == 0 && tuple[1] == 0 && tuple[2] == 0xfe && tuple[3] == 0xff) {
+                endian = BigEndianness;
+            }
+            else if (QSysInfo::ByteOrder == QSysInfo::BigEndian) {
+                endian = BigEndianness;
+            }
+            else {
+                endian = LittleEndianness;
+            }
+        }
+        uint code = (endian == BigEndianness) ? qFromBigEndian<quint32>(tuple) : qFromLittleEndian<quint32>(tuple);
+        if (headerdone || code != QChar::ByteOrderMark) {
+            if (QChar::requiresSurrogates(code)) {
+                *out++ = QChar(QChar::highSurrogate(code));
+                *out++ = QChar(QChar::lowSurrogate(code));
+            }
+            else {
+                *out++ = QChar(code);
+            }
+        }
+        num = 0;
+    }
+    else if (endian == DetectEndianness) {
+        endian = (QSysInfo::ByteOrder == QSysInfo::BigEndian) ? BigEndianness : LittleEndianness;
+    }
+    state->state_data[Endian] = endian;
+    state->internalState != HeaderDone;
+
+    while (chars < end) {
+        tuple[num++] = *chars++;
+        if (num == 4) {
+            uint code = (endian == BigEndianness) ? qFromBigEndian<quint32>(tuple) : qFromLittleEndian<quint32>(tuple);
+            for (char16_t c : QChar::fromUcs4(code)) {
+                *out++ = c;
+            }
+            num = 0;
+        }
+    }
+
+    if (num) {
+        if (state->flags & QStringDecoder::Flag::Stateless) {
+            *out++ = QChar::ReplacementCharacter;
+        }
+        else {
+            state->state_data[Endian] = endian;
+            state->remainingChars = num;
+            memcpy(&state->state_data[Data], tuple, 4);
+        }
+    }
+    return out;
+}
+
+#if defined(Q_OS_WIN) && !defined(QT_BOOTSTRAPPED)
+//zhaoyujie TODO
+static_assert(false);
+#endif
+
+static QChar *fromUtf16(QChar *out, QByteArrayView in, QStringConverter::State *state) {
+    return QUtf16::convertToUnicode(out, in, state, DetectEndianness);
+}
+
+static char *toUtf16(char *out, QStringView in, QStringConverter::State *state) {
+    return QUtf16::convertFromUnicode(out, in, state, DetectEndianness);
+}
+
+static QChar *fromUtf16BE(QChar *out, QByteArrayView in, QStringConverter::State *state) {
+    return QUtf16::convertToUnicode(out, in, state, BigEndianness);
+}
+
+static char *toUtf16BE(char *out, QStringView in, QStringConverter::State *state) {
+    return QUtf16::convertFromUnicode(out, in, state, BigEndianness);
+}
+
+static QChar *fromUtf16LE(QChar *out, QByteArrayView in, QStringConverter::State *state) {
+    return QUtf16::convertToUnicode(out, in, state, LittleEndianness);
+}
+
+static char *toUtf16LE(char *out, QStringView in, QStringConverter::State *state) {
+    return QUtf16::convertFromUnicode(out, in, state, LittleEndianness);
+}
+
+static QChar *fromUtf32(QChar *out, QByteArrayView in, QStringConverter::State *state) {
+    return QUtf32::convertToUnicode(out, in, state, DetectEndianness);
+}
+
+static char *toUtf32(char *out, QStringView in, QStringConverter::State *state) {
+    return QUtf32::convertFromUnicode(out, in, state, DetectEndianness);
+}
+
+static QChar *fromUtf32BE(QChar *out, QByteArrayView in, QStringConverter::State *state) {
+    return QUtf32::convertToUnicode(out, in, state, BigEndianness);
+}
+
+static char *toUtf32BE(char *out, QStringView in, QStringConverter::State *state) {
+    return QUtf32::convertFromUnicode(out, in, state, BigEndianness);
+}
+
+static QChar *fromUtf32LE(QChar *out, QByteArrayView in, QStringConverter::State *state) {
+    return QUtf32::convertToUnicode(out, in, state, LittleEndianness);
+}
+
+static char *toUtf32LE(char *out, QStringView in, QStringConverter::State *state) {
+    return QUtf32::convertFromUnicode(out, in, state, LittleEndianness);
+}
+
+void qt_from_latin1(char16_t *dst, const char *str, size_t size) noexcept;
+
+static QChar *fromLatin1(QChar *out, QByteArrayView in, QStringConverter::State *state) {
+    Q_ASSERT(state);
+    Q_UNUSED(state);
+
+    qt_from_latin1(reinterpret_cast<char16_t  *>(out), in.data(), size_t(in.size()));
+    return out + in.size();
+}
+
+static char *toLatin1(char *out, QStringView in, QStringConverter::State *state) {
+    Q_ASSERT(state);
+    if (state->flags & QStringConverter::Flag::Stateless) {  //临时的
+        state = nullptr;
+    }
+
+    const char replacemenet = (state && state->flags & QStringConverter::Flag::ConvertInvalidToNull) ? 0 : '?';
+    int invalid = 0;
+    for (qsizetype i = 0; i < in.length(); ++i) {
+        if (in[i] > QChar(0xff)) {
+            *out = replacemenet;
+            ++invalid;
+        }
+        else {
+            *out = (char)in[i].cell();
+        }
+        ++out;
+    }
+    if (state) {
+        state->invalidChars += invalid;
+    }
+    return out;
+}
+
+static QChar *fromLocal8Bit(QChar *out, QByteArrayView in, QStringConverter::State *state) {
+    QString s = QLocal8Bit::convertToUnicode(in, state);
+    memcpy(out, s.constData(), s.length() * sizeof(QChar));
+    return out + s.length();
+}
+
+static char *toLocal8Bit(char *out, QStringView in, QStringConverter::State *state) {
+    QByteArrayView s = QLocal8Bit::convertFromUnicode(in, state);
+    memcpy(out, s.constData(), s.length());
+    return out + s.length();
+}
+
+static qsizetype fromUtf8Len(qsizetype l) { return l + 1; }
+static qsizetype toUtf8Len(qsizetype l) { return 3 * (l + 1); }
+
+static qsizetype fromUtf16Len(qsizetype l) { return l / 2 + 2; }
+static qsizetype toUtf16Len(qsizetype l) { return 2 * (l + 2); }
+
+static qsizetype fromUtf32Len(qsizetype l) { return l / 2 + 2; }
+static qsizetype toUtf32Len(qsizetype l) { return 4 * (l + 1); }
+
+static qsizetype fromLatin1Len(qsizetype l) { return l + 1; }
+static qsizetype toLatin1Len(qsizetype l) { return l + 1; }
+
+const QStringConverter::Interface QStringConverter::encodingInterfaces[QStringConverter::LastEncoding + 1] = {
+        { "UTF-8", QUtf8::convertToUnicode, fromUtf8Len, QUtf8::convertFromUnicode, toUtf8Len },
+        { "UTF-16", fromUtf16, fromUtf16Len, toUtf16, toUtf16Len },
+        { "UTF-16LE", fromUtf16LE, fromUtf16Len, toUtf16LE, toUtf16Len },
+        { "UTF-16BE", fromUtf16BE, fromUtf16Len, toUtf16BE, toUtf16Len },
+        { "UTF-32", fromUtf32, fromUtf32Len, toUtf32, toUtf32Len },
+        { "UTF-32LE", fromUtf32LE, fromUtf32Len, toUtf32LE, toUtf32Len },
+        { "UTF-32BE", fromUtf32BE, fromUtf32Len, toUtf32BE, toUtf32Len },
+        { "ISO-8859-1", fromLatin1, fromLatin1Len, toLatin1, toLatin1Len },
+        { "Locale", fromLocal8Bit, fromUtf8Len, toLocal8Bit, toUtf8Len }
+};
+
+static bool nameMatch(const char *a, const char *b) {
+    while (*a && *b) {
+        if (*a == '-' || *a == '_') {
+            ++a;
+            continue;
+        }
+        if (*b == '-' || *b == '_') {
+            ++b;
+            continue;
+        }
+        if (toupper(*a) != toupper(*b)) {
+            return false;
+        }
+        ++a;
+        ++b;
+    }
+    return !*a && !*b;
+}
+
+QStringConverter::QStringConverter(const char *name, Flags f)
+    : iface(nullptr), state(f) {
+    auto e = encodingForName(name);
+    if (e) {
+        iface = encodingInterfaces + int(e.value());
+    }
+}
+
+std::optional<QStringConverter::Encoding> QStringConverter::encodingForName(const char *name) {
+    for (int i = 0; i < LastEncoding + 1; ++i) {
+        if (nameMatch(encodingInterfaces[i].name, name)) {
+            return QStringConverter::Encoding(i);
+        }
+    }
+    if (nameMatch(name, "latin1")) {
+        return QStringConverter::Latin1;
+    }
+    return std::nullopt;
+}
+
+//根据data获取编码格式
+std::optional<QStringConverter::Encoding> QStringConverter::encodingForData(QByteArrayView data, char16_t expectedFirstCharacter) {
+    qsizetype arraySize = data.size();
+    if (arraySize > 3) {
+        uint uc = qFromUnaligned<uint>(data.data());
+        if (uc == qToBigEndian(uint(QChar::ByteOrderMark))) {
+            return QStringConverter::Utf32BE;
+        }
+        if (uc == qToLittleEndian(uint(QChar::ByteOrderMark))) {
+            return QStringConverter::Utf32LE;
+        }
+        if (expectedFirstCharacter) {
+            if (qToLittleEndian(uc) == expectedFirstCharacter) {
+                return QStringConverter::Utf32LE;
+            }
+            else if (qToBigEndian(uc) == expectedFirstCharacter) {
+                return QStringConverter::Utf32BE;
+            }
+        }
+    }
+    if (arraySize > 2) {
+        if (memcmp(data.data(), utf8bom, sizeof(utf8bom)) == 0) {
+            return QStringConverter::Utf8;
+        }
+    }
+
+    if (arraySize > 1) {
+        ushort uc = qFromUnaligned<short>(data.data());
+        if (uc == qToBigEndian(ushort(QChar::ByteOrderMark))) {
+            return QStringConverter::Utf16BE;
+        }
+        if (uc == qToLittleEndian(ushort(QChar::ByteOrderMark))) {
+            return QStringConverter::Utf16LE;
+        }
+        if (expectedFirstCharacter) {
+            if (qToLittleEndian(uc) == expectedFirstCharacter) {
+                return QStringConverter::Utf16LE;
+            }
+            else if (qToBigEndian(uc) == expectedFirstCharacter) {
+                return QStringConverter::Utf16BE;
+            }
+        }
+    }
+    return std::nullopt;
+}
+
+std::optional<QStringConverter::Encoding> QStringConverter::encodingForHtml(QByteArrayView data) {
+    Q_ASSERT(false);
+    auto encoding = encodingForData(data);
+    if (encoding) {
+        return encoding;
+    }
+
+    //zhaoyujie TODO 咋感觉这里有bug呢。。。
+    QByteArray header = data.first(qMin(data.size(), qsizetype(1024))).toByteArray().toLower();
+    int pos = header.indexOf("meta ");
+    if (pos != -1) {
+        pos = header.indexOf("charset=", pos);
+        if (pos != -1) {
+            pos += int(qstrlen("charset="));
+            if (pos < header.size() && (header.at(pos) == '\"') || header.at(pos) == '\"') {
+                ++pos;
+            }
+            int pos2 = pos;
+            while (++pos2 < header.size()) {
+                char ch = header.at(pos2);
+                if (ch == '\"' || ch == '\'' || ch == '>' || ch == '/') {
+                    QByteArray name = header.mid(pos, pos2 - pos);
+                    int colon = name.indexOf(':');
+                    if (colon > 0) {
+                        name = name.left(colon);
+                    }
+                    name = name.simplified();
+                    if (name == "unicode") {
+                        name = QByteArrayLiteral("UTF-8");
+                    }
+                    if (!name.isEmpty()) {
+                        return encodingForName(name);
+                    }
+                }
+            }
+
+        }
+    }
+    return Utf8;
+}
+
+const char *QStringConverter::nameForEncoding(Encoding e) {
+    return encodingInterfaces[int(e)].name;
 }
 
 QT_END_NAMESPACE

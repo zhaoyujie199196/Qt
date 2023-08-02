@@ -9,6 +9,7 @@
 #include <QtCore/qchar.h>
 #include <QtCore/qatomic.h>
 #include <QtCore/qbytearray.h>
+#include <QtCore/qstring.h>
 #include <array>
 #include <string>
 #include <string_view>
@@ -55,6 +56,7 @@ inline constexpr int qMetaTypeId();
 
 #define QT_FOR_EACH_STATIC_CORE_CLASS(F) \
     F(QChar, 7, QChar)                   \
+    F(QString, 10, QString)              \
 
 
 #define QT_FOR_EACH_STATIC_TYPE(F) \

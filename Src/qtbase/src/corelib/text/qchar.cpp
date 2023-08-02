@@ -36,23 +36,6 @@ static inline T convertCase_helper(T uc, QUnicodeTables::Case which) noexcept {
     return uc + fold.diff;
 }
 
-static inline char32_t foldCase(const char16_t *ch, const char16_t *start) {
-    char32_t ucs4 = *ch;
-    if (QChar::isLowSurrogate(ucs4) && ch > start && QChar::isHighSurrogate(*(ch - 1))) {
-        ucs4 = QChar::surrogateToUcs4(*(ch - 1), ucs4);
-    }
-    return convertCase_helper(ucs4, QUnicodeTables::CaseFold);
-}
-
-static inline char32_t foldCase(char32_t ch, char32_t &last) noexcept {
-    char32_t ucs4 = ch;
-    if (QChar::isLowSurrogate(ucs4) && QChar::isHighSurrogate(last)) {
-        ucs4 = QChar::surrogateToUcs4(last, ucs4);
-    }
-    last = ch;
-    return convertCase_helper(ucs4, QUnicodeTables::CaseFold);
-}
-
 bool QChar::compare(QChar c) const noexcept {
     if (ucs < c.ucs) {
         return -1;
@@ -241,6 +224,31 @@ QChar::Decomposition QChar::decompositionTag(char32_t ucs4) noexcept {
     if (index == 0xffff)
         return QChar::NoDecomposition;
     return (QChar::Decomposition)(uc_decomposition_map[index] & 0xff);
+}
+
+char32_t QChar::foldCase(const char16_t *ch, const char16_t *start) {
+    char32_t ucs4 = *ch;
+    if (QChar::isLowSurrogate(ucs4) && ch > start && QChar::isHighSurrogate(*(ch - 1))) {
+        ucs4 = QChar::surrogateToUcs4(*(ch - 1), ucs4);
+    }
+    return convertCase_helper(ucs4, QUnicodeTables::CaseFold);
+}
+
+char32_t QChar::foldCase(char32_t ch, char32_t &last) noexcept {
+    char32_t ucs4 = ch;
+    if (QChar::isLowSurrogate(ucs4) && QChar::isHighSurrogate(last)) {
+        ucs4 = QChar::surrogateToUcs4(last, ucs4);
+    }
+    last = ch;
+    return convertCase_helper(ucs4, QUnicodeTables::CaseFold);
+}
+
+char16_t QChar::foldCase(char16_t ch) noexcept {
+    return convertCase_helper(ch, QUnicodeTables::CaseFold);
+}
+
+QChar QChar::foldCase(QChar ch) noexcept {
+    return QChar(foldCase(ch.unicode()));
 }
 
 QT_END_NAMESPACE

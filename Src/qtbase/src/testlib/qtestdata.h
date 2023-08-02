@@ -7,6 +7,7 @@
 
 #include <QtTest/qtestglobal.h>
 #include <QtCore/qmetatype.h>
+#include <QtCore/qstring.h>
 
 QT_BEGIN_NAMESPACE
 
@@ -28,6 +29,12 @@ template <typename T>
 QTestData &operator<<(QTestData &data, const T &value)
 {
     data.append(qMetaTypeId<T>(), &value);
+    return data;
+}
+
+inline QTestData &operator<<(QTestData &data, const char *value) {
+    QString str = QString::fromUtf8(value);
+    data.append(QMetaType::QString, &str);
     return data;
 }
 

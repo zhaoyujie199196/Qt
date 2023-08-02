@@ -430,4 +430,6 @@
 #  define QT_MAKE_CHECKED_ARRAY_ITERATOR(x, N) (x)
 #endif
 
+#define Q_WEAK_OVERLOAD template <typename = void>
+
 #endif //QCOMPILERDETECTION_H
