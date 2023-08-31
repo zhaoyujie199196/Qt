@@ -1,3 +1,4 @@
 add_subdirectory(qlist)
 add_subdirectory(qvarlengtharray)
 add_subdirectory(qscopeguard)
+add_subdirectory(qsharedpointer)
