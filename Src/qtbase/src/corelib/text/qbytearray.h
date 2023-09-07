@@ -32,7 +32,7 @@ public:
 private:
     typedef QTypedArrayData<char> Data;
     DataPointer d;
-    static const char _empty;  //TODO 这个设计是什么目的？
+    static const char _empty;
 
 public:
     //base64编码 原理：https://zhuanlan.zhihu.com/p/146599482
@@ -96,7 +96,7 @@ public:
     inline char *data()
     { detach(); Q_ASSERT(d.data()); return d.data(); }
     inline const char *data() const
-    { return d.data(); }
+    { return d.data() ? d.data() : &_empty; }
     inline const char *constData() const
     { return data(); }
     inline void detach();
