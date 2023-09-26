@@ -1534,6 +1534,19 @@ QString QString::asprintf(const char *cformat, ...) {
     return s;
 }
 
+void QString::setNum(int i, int base)
+{
+    auto s = std::to_string(i);
+    *this = QString::fromStdString(s);
+}
+
+QString QString::number(int i, int base)
+{
+    //zhaoyujie TODO
+    auto s = std::to_string(i);
+    return QString::fromStdString(s);
+}
+
 qsizetype QtPrivate::qustrlen(const char16_t *str) noexcept
 {
     qsizetype result = 0;

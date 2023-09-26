@@ -263,6 +263,9 @@ public:
     static inline int compare(QStringView s1, const QString &s2, Qt::CaseSensitivity cs = Qt::CaseSensitive) noexcept
     { return -s2.compare(s1, cs); }
 
+    void setNum(int i, int base = 10);
+    static QString number(int, int base = 10);
+
 //#if QT_CONFIG(regularexpression)
 //    QString &replace(const QRegularExpression &re, const QString  &after);
 //    inline QString &remove(const QRegularExpression &re)
