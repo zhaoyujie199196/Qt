@@ -55,4 +55,22 @@ bool QTestResult::compare(bool success, const char *failMsg, QStringView val1, Q
     return success;
 }
 
+bool QTestResult::compare(bool success, const char *failureMsg, double val1, double val2, const char *actual, const char *expected, const char *file, int line)
+{
+    Q_ASSERT(success);
+    return success;
+}
+
+bool QTestResult::compare(bool success, const char *failureMsg, float val1, float val2, const char *actual, const char *expected, const char *file, int line)
+{
+    Q_ASSERT(success);
+    return success;
+}
+
+bool QTestResult::compare(bool success, const char *failureMsg, int val1, int val2, const char *actual, const char *expected, const char *file, int line)
+{
+    Q_ASSERT(success);
+    return success;
+}
+
 QT_END_NAMESPACE

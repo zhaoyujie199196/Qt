@@ -5,6 +5,7 @@
 #include <QtCore/qglobal.h>
 #include <tuple>
 #include <variant>
+#include <optional>
 
 #ifndef QTYPEINFO_H
 #define QTYPEINFO_H
@@ -40,6 +41,11 @@ inline constexpr bool qIsRelocatable = std::is_trivially_copyable_v<T> && std::i
  * 4.可以通过位拷贝复制的指针类型。
  * 如果一个类型是平凡类型，则它可以安全地使用位拷贝和移动构造函数，以及其他要求类型是平凡的操作。
  */
+
+/*
+ * std::declval的功能：返回某个类型T的右值引用，不管该类型是否有默认构造函数或者该类型是否可以创建对象
+ * c++模板进阶指南：https://zhuanlan.zhihu.com/p/21314708
+ * */
 
 template <typename T>
 class QTypeInfo {
@@ -175,6 +181,52 @@ namespace QTypeTraits
         struct expand_operator_less_than_tuple<std::tuple<T...>> : expand_operator_less_than_recursive<T...> {};
         template <typename ...T>
         struct expand_operator_less_than_tuple<std::variant<T...>> : expand_operator_less_than_recursive<T...> {};
+
+        //含有==操作符
+        template <typename, typename = void>
+        struct has_operator_equal : std::false_type {};  //默认为false
+        //没有==操作符不会导致编译失败：https://zhuanlan.zhihu.com/p/21314708
+        //SFINAE技术，Substitution failure is not an error
+        //T虽然不能匹配这个这个类，但是可以匹配上面的std::false_type类型的类
+        template <typename T>
+        struct has_operator_equal<T, std::void_t<decltype(bool(std::declval<const T&>() == std::declval<const T&>()))>>
+                : std::true_type {};
+
+        template<typename T, bool = is_container<T>::value>
+        struct expand_operator_equal_container;
+        template<typename T>
+        struct expand_operator_equal_tuple;
+
+        // the entry point for the public method
+        template<typename T>
+        using expand_operator_equal = expand_operator_equal_container<T>;
+
+        // if T isn't a container check if it's a tuple like object
+        template<typename T, bool>
+        struct expand_operator_equal_container : expand_operator_equal_tuple<T> {};
+        // if T::value_type exists, check first T::value_type, then T itself
+        template<typename T>
+        struct expand_operator_equal_container<T, true> :
+                std::conjunction<
+                        std::disjunction<
+                                std::is_same<T, typename T::value_type>, // avoid endless recursion
+                                expand_operator_equal<typename T::value_type>
+                        >, expand_operator_equal_tuple<T>> {};
+
+        // recursively check the template arguments of a tuple like object
+        template<typename ...T>
+        using expand_operator_equal_recursive = std::conjunction<expand_operator_equal<T>...>;
+
+        template<typename T>
+        struct expand_operator_equal_tuple : has_operator_equal<T> {};
+        template<typename T>
+        struct expand_operator_equal_tuple<std::optional<T>> : has_operator_equal<T> {};
+        template<typename T1, typename T2>
+        struct expand_operator_equal_tuple<std::pair<T1, T2>> : expand_operator_equal_recursive<T1, T2> {};
+        template<typename ...T>
+        struct expand_operator_equal_tuple<std::tuple<T...>> : expand_operator_equal_recursive<T...> {};
+        template<typename ...T>
+        struct expand_operator_equal_tuple<std::variant<T...>> : expand_operator_equal_recursive<T...> {};
     }
     //struct TestOpeartorEqual {
     //    friend inline bool operator==(const TestOpeartorEqual &lhs, const TestOpeartorEqual &rhs) {
@@ -185,10 +237,10 @@ namespace QTypeTraits
     //qDebug()<<bool(std::declval<const TestOpeartorEqual &>() == std::declval<const TestOpeartorEqual &>());
 
     //是否含有operator== 操作符号
-    template <typename , typename = void>
-    struct has_operator_equal : std::false_type {};
-    template <typename T>
-    struct has_operator_equal<T, std::void_t<decltype(bool(std::declval<const T &>() == std::declval<const T &>()))>> : std::true_type {};
+    template<typename T>
+    struct has_operator_equal : detail::expand_operator_equal<T> {};
+    template<typename T>
+    inline constexpr bool has_operator_equal_v = has_operator_equal<T>::value;
 
     template <typename T>
     struct has_operator_less_than : detail::expand_operator_less_than<T> {};

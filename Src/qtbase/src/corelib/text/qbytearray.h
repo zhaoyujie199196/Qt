@@ -316,6 +316,46 @@ public:
     friend inline bool operator!=(const char *a1, const QByteArray &a2) noexcept
     { return a1 ? QtPrivate::compareMemory(a1, a2) != 0 : !a2.isEmpty(); }
 
+    friend inline bool operator<(const QByteArray &a1, const QByteArray &a2) noexcept
+    { return QtPrivate::compareMemory(QByteArrayView(a1), QByteArrayView(a2)) < 0; }
+    friend inline bool operator<(const QByteArray &a1, const char *a2) noexcept
+    { return QtPrivate::compareMemory(a1, a2) < 0; }
+    friend inline bool operator<(const char *a1, const QByteArray &a2) noexcept
+    { return QtPrivate::compareMemory(a1, a2) < 0; }
+    friend inline bool operator<=(const QByteArray &a1, const QByteArray &a2) noexcept
+    { return QtPrivate::compareMemory(QByteArrayView(a1), QByteArrayView(a2)) <= 0; }
+    friend inline bool operator<=(const QByteArray &a1, const char *a2) noexcept
+    { return QtPrivate::compareMemory(a1, a2) <= 0; }
+    friend inline bool operator<=(const char *a1, const QByteArray &a2) noexcept
+    { return QtPrivate::compareMemory(a1, a2) <= 0; }
+    friend inline bool operator>(const QByteArray &a1, const QByteArray &a2) noexcept
+    { return QtPrivate::compareMemory(QByteArrayView(a1), QByteArrayView(a2)) > 0; }
+    friend inline bool operator>(const QByteArray &a1, const char *a2) noexcept
+    { return QtPrivate::compareMemory(a1, a2) > 0; }
+    friend inline bool operator>(const char *a1, const QByteArray &a2) noexcept
+    { return QtPrivate::compareMemory(a1, a2) > 0; }
+    friend inline bool operator>=(const QByteArray &a1, const QByteArray &a2) noexcept
+    { return QtPrivate::compareMemory(QByteArrayView(a1), QByteArrayView(a2)) >= 0; }
+    friend inline bool operator>=(const QByteArray &a1, const char *a2) noexcept
+    { return QtPrivate::compareMemory(a1, a2) >= 0; }
+    friend inline bool operator>=(const char *a1, const QByteArray &a2) noexcept
+    { return QtPrivate::compareMemory(a1, a2) >= 0; }
+
+    friend inline bool operator==(const QByteArray &a1, std::nullptr_t) noexcept { return a1.isEmpty(); }
+    friend inline bool operator!=(const QByteArray &a1, std::nullptr_t) noexcept { return !a1.isEmpty(); }
+    friend inline bool operator< (const QByteArray &  , std::nullptr_t) noexcept { return false; }
+    friend inline bool operator> (const QByteArray &a1, std::nullptr_t) noexcept { return !a1.isEmpty(); }
+    friend inline bool operator<=(const QByteArray &a1, std::nullptr_t) noexcept { return a1.isEmpty(); }
+    friend inline bool operator>=(const QByteArray &  , std::nullptr_t) noexcept { return true; }
+
+    friend inline bool operator==(std::nullptr_t, const QByteArray &a2) noexcept { return a2 == nullptr; }
+    friend inline bool operator!=(std::nullptr_t, const QByteArray &a2) noexcept { return a2 != nullptr; }
+    friend inline bool operator< (std::nullptr_t, const QByteArray &a2) noexcept { return a2 >  nullptr; }
+    friend inline bool operator> (std::nullptr_t, const QByteArray &a2) noexcept { return a2 <  nullptr; }
+    friend inline bool operator<=(std::nullptr_t, const QByteArray &a2) noexcept { return a2 >= nullptr; }
+    friend inline bool operator>=(std::nullptr_t, const QByteArray &a2) noexcept { return a2 <= nullptr; }
+
+
     inline qsizetype size() const { return d->size; }
     inline qsizetype count() const { return size(); }
     inline qsizetype length() const { return size(); }

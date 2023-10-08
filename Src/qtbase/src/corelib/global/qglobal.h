@@ -310,6 +310,20 @@ template <typename T>
 constexpr inline const T &qBound(const T &min, const T &val, const T &max)
 { return qMax(min, qMin(max, val)); }
 
+
+constexpr inline int qRound(double d)
+{ return d >= 0.0 ? int(d + 0.5) : int(d - 0.5); }
+constexpr inline int qRound(float d)
+{ return d >= 0.0f ? int(d + 0.5f) : int(d - 0.5f); }
+constexpr inline qint64 qRound64(double d)
+{ return d >= 0.0 ? qint64(d + 0.5) : qint64(d - 0.5); }
+constexpr inline qint64 qRound64(float d)
+{ return d >= 0.0f ? qint64(d + 0.5f) : qint64(d - 0.5f); }
+
+template <typename T>
+const inline const T qAbs(const T &t)
+{ return abs(t); }
+
 // printf格式检查
 // enable gcc warnings for printf-style functions
 #if defined(Q_CC_GNU) && !defined(__INSURE__)

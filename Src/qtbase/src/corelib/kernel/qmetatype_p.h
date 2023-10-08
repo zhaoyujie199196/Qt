@@ -28,6 +28,20 @@ namespace QtMetaTypePrivate {
     case QMetaType::MetaTypeName: \
         return QtMetaTypePrivate::getInterfaceFromType<RealName>();
 
+#define QMETATYPE_CONVERTER(To, From, assign_and_return) \
+    case makePair(QMetaType::To, QMetaType::From):       \
+        if (onlyCheck) { \
+            return true;                                     \
+        }                                                \
+        {                                                \
+            const From &source = *static_cast<const From *>(from); \
+            To &result = *static_cast<To *>(to);         \
+            assign_and_return \
+        }
+
+#define QMETATYPE_CONVERTER_ASSIGN(To, From) \
+    QMETATYPE_CONVERTER(To, From, result = To(source); return true;)
+
 }
 
 QT_END_NAMESPACE

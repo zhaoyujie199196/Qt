@@ -1,1 +1,2 @@
 add_subdirectory(qpointer)
+add_subdirectory(qvariant)

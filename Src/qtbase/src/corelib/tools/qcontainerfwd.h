@@ -11,6 +11,12 @@ QT_BEGIN_NAMESPACE
 
 template <typename T> class QList;
 template <typename T, qsizetype Prealloc = 256> class QVarLengthArray;  //QVarLengthArray的前置声明
+template <typename Key, typename T> class QMap;
+
+class QVariant;
+class QString;
+using QVariantList = QList<QVariant>;
+using QVariantMap = QMap<QString, QVariant>;
 
 QT_END_NAMESPACE
 

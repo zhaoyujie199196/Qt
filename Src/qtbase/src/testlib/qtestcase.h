@@ -6,17 +6,21 @@
 #define QTESTCASE_H
 
 #include <QtGlobal>
+#include <QtCore/qnumeric.h>
 #include <type_traits>
 #include <QtTest/qtestglobal.h>
 #include <QtTest/qtestdata.h>
 #include <QtCore/qmetatype.h>
-#include <QtCore/QByteArray>
-#include <QtCore/QString>
-#include <QtCore/QStringView>
+#include <QtCore/qbytearray.h>
+#include <QtCore/qstring.h>
+#include <QtCore/qstringview.h>
+#include <QtCore/qlogging.h>
+#include "qtestresult_p.h"
 
 QT_BEGIN_NAMESPACE
 
 class QObject;
+class QRegularExpression;
 
 #define QVERIFY(statement) \
 do {                       \
@@ -50,6 +54,26 @@ do {\
             return;                \
         }                          \
     } while (false)
+
+template <typename T>
+static bool floatingCompare(const T &actual, const T &expected)
+{
+    return qFuzzyCompare(actual, expected);
+//    switch (qFpClassify(expected))
+//    {
+//        case FP_INFINITE:
+//            return (expected < 0) == (actual < 0) && qFpClassify(actual) == FP_INFINITE;
+//        case FP_NAN:
+//            return qFpClassify(actual) == FP_NAN;
+//        default:
+//            if (!qFuzzyIsNull(expected))
+//                return qFuzzyCompare(actual, expected);
+//            Q_FALLTHROUGH();
+//        case FP_SUBNORMAL: // subnormal is always fuzzily null
+//        case FP_ZERO:
+//            return qFuzzyIsNull(actual);
+//    }
+}
 
 class QTestData;
 namespace QTest {
@@ -191,11 +215,31 @@ namespace QTest {
         return compare_string_helper(t1, t2, actual, expected, file, line);
     }
 
+//    bool qCompare(qfloat16 const &t1, qfloat16 const &t2,  const char *actual, const char *expected, const char *file, int line);
+
+    bool qCompare(float const &t1, float const &t2, const char *actual, const char *expected, const char *file, int line)
+    {
+        return QTestResult::compare(floatingCompare(t1, t2), "Compared floats are not the same (fuzzy compare)", t1, t2, actual, expected, file, line);
+    }
+
+    bool qCompare(double const &t1, double const &t2,  const char *actual, const char *expected, const char *file, int line)
+    {
+        return QTestResult::compare(floatingCompare(t1, t2), "Compared doubles are not the same (fuzzy compare)", t1, t2, actual, expected, file, line);
+    }
+
+    bool qCompare(int t1, int t2, const char *actual, const char *expected, const char *file, int line)
+    {
+        return QTestResult::compare(t1 == t2, "Compared values are not the same", t1, t2, actual, expected, file, line);
+    }
+
     template <typename T>
     inline bool qTest(const T &actual, const char *elementName, const char *actualStr, const char *expected, const char *file, int line)
     {
         return qCompare(actual, *static_cast<const T *>(QTest::qElementData(elementName, qMetaTypeId<T>())), actualStr, expected, file, line);
     }
+
+    void ignoreMessage(QtMsgType type, const char *message) {}
+    void ignoreMessage(QtMsgType type, const QRegularExpression &messagePattern) {}
 
 #define QCOMPARE(actual, expected) \
     QTest::qCompare(actual, expected, #actual, #expected, __FILE__, __LINE__)

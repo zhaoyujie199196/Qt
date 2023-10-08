@@ -1,0 +1,1 @@
+qt_add_test_helper(TST_QVARIANT ${CMAKE_CURRENT_SOURCE_DIR}/tst_qvariant.cpp)

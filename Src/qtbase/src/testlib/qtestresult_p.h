@@ -20,6 +20,9 @@ public:
     static void setCurrentTestData(QTestData *testData);
     static bool compare(bool success, const char *failMsg, char *val1, char *val2, const char *actual, const char *expected, const char *file, int line);
     static bool compare(bool success, const char *failMsg, QStringView val1, QStringView val2, const char *actual, const char *expected, const char *file, int line);
+    static bool compare(bool success, const char *failureMsg, double val1, double val2, const char *actual, const char *expected, const char *file, int line);
+    static bool compare(bool success, const char *failureMsg, float val1, float val2, const char *actual, const char *expected, const char *file, int line);
+    static bool compare(bool success, const char *failureMsg, int val1, int val2, const char *actual, const char *expected, const char *file, int line);
 };
 
 QT_END_NAMESPACE
