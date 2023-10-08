@@ -473,60 +473,59 @@ void tst_QPointF::compare()
 
 void tst_QPointF::structuredBinding()
 {
-    //zhaoyujie TODO 结构绑定一直失败，不知道为啥
-//    {
-//        QPointF p(1.5, 2.25);
-//        auto [x, y] = p;
-//        QCOMPARE(x, 1.5);
-//        QCOMPARE(y, 2.25);
-//
-//        p.setX(42);
-//        QCOMPARE(x, 1.5);
-//        QCOMPARE(y, 2.25);
-//
-//        p.setY(-123);
-//        QCOMPARE(x, 1.5);
-//        QCOMPARE(y, 2.25);
-//    }
-//    {
-//        QPointF p(1.5, 2.25);
-//
-//        auto &[x, y] = p;
-//        QCOMPARE(x, 1.5);
-//        QCOMPARE(y, 2.25);
-//
-//        x = 42.0;
-//        QCOMPARE(x, 42.0);
-//        QCOMPARE(p.x(), 42.0);
-//        QCOMPARE(p.rx(), 42.0);
-//        QCOMPARE(y, 2.25);
-//        QCOMPARE(p.y(), 2.25);
-//        QCOMPARE(p.ry(), 2.25);
-//
-//        y = -123.5;
-//        QCOMPARE(x, 42.0);
-//        QCOMPARE(p.x(), 42.0);
-//        QCOMPARE(p.rx(), 42.0);
-//        QCOMPARE(y, -123.5);
-//        QCOMPARE(p.y(), -123.5);
-//        QCOMPARE(p.ry(), -123.5);
-//
-//        p.setX(0.0);
-//        QCOMPARE(x, 0.0);
-//        QCOMPARE(p.x(), 0.0);
-//        QCOMPARE(p.rx(), 0.0);
-//        QCOMPARE(y, -123.5);
-//        QCOMPARE(p.y(), -123.5);
-//        QCOMPARE(p.ry(), -123.5);
-//
-//        p.ry() = 10.5;
-//        QCOMPARE(x, 0.0);
-//        QCOMPARE(p.x(), 0.0);
-//        QCOMPARE(p.rx(), 0.0);
-//        QCOMPARE(y, 10.5);
-//        QCOMPARE(p.y(), 10.5);
-//        QCOMPARE(p.ry(), 10.5);
-//    }
+    {
+        QPointF p(1.5, 2.25);
+        auto [x, y] = p;
+        QCOMPARE(x, 1.5);
+        QCOMPARE(y, 2.25);
+
+        p.setX(42);
+        QCOMPARE(x, 1.5);
+        QCOMPARE(y, 2.25);
+
+        p.setY(-123);
+        QCOMPARE(x, 1.5);
+        QCOMPARE(y, 2.25);
+    }
+    {
+        QPointF p(1.5, 2.25);
+
+        auto &[x, y] = p;
+        QCOMPARE(x, 1.5);
+        QCOMPARE(y, 2.25);
+
+        x = 42.0;
+        QCOMPARE(x, 42.0);
+        QCOMPARE(p.x(), 42.0);
+        QCOMPARE(p.rx(), 42.0);
+        QCOMPARE(y, 2.25);
+        QCOMPARE(p.y(), 2.25);
+        QCOMPARE(p.ry(), 2.25);
+
+        y = -123.5;
+        QCOMPARE(x, 42.0);
+        QCOMPARE(p.x(), 42.0);
+        QCOMPARE(p.rx(), 42.0);
+        QCOMPARE(y, -123.5);
+        QCOMPARE(p.y(), -123.5);
+        QCOMPARE(p.ry(), -123.5);
+
+        p.setX(0.0);
+        QCOMPARE(x, 0.0);
+        QCOMPARE(p.x(), 0.0);
+        QCOMPARE(p.rx(), 0.0);
+        QCOMPARE(y, -123.5);
+        QCOMPARE(p.y(), -123.5);
+        QCOMPARE(p.ry(), -123.5);
+
+        p.ry() = 10.5;
+        QCOMPARE(x, 0.0);
+        QCOMPARE(p.x(), 0.0);
+        QCOMPARE(p.rx(), 0.0);
+        QCOMPARE(y, 10.5);
+        QCOMPARE(p.y(), 10.5);
+        QCOMPARE(p.ry(), 10.5);
+    }
 }
 
 

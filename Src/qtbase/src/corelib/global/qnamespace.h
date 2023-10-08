@@ -84,6 +84,12 @@ namespace Qt {
         ChecksumIso3309,
         ChecksumItuV41
     };
+
+    enum AspectRatioMode {
+        IgnoreAspectRatio,  //忽略宽高哔哩
+        KeepAspectRatio,  //保持宽高比
+        KeepAspectRatioByExpanding  //扩展保持宽高比
+    };
 }
 
 QT_END_NAMESPACE

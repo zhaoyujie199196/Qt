@@ -110,8 +110,8 @@ private:
 };
 Q_DECLARE_TYPEINFO(QPoint, Q_PRIMITIVE_TYPE)
 
-QDataStream &operator<<(QDataStream &s, const QPoint &p) { Q_ASSERT(false); return s; }
-QDataStream &operator>>(QDataStream &s, QPoint &p) { Q_ASSERT(false); return s; }
+static QDataStream &operator<<(QDataStream &s, const QPoint &p) { Q_ASSERT(false); return s; }
+static QDataStream &operator>>(QDataStream &s, QPoint &p) { Q_ASSERT(false); return s; }
 
 constexpr inline QPoint::QPoint() noexcept : xp(0), yp(0) {}
 
@@ -199,8 +199,8 @@ constexpr inline QPoint &QPoint::operator/=(qreal c)
     return *this;
 }
 
-QDebug operator<<(QDebug debug, const QPoint &p) { Q_ASSERT(false); return debug; }
-size_t qHash(QPoint key, size_t seed = 0) noexcept { Q_ASSERT(false); return 0; }
+static QDebug operator<<(QDebug debug, const QPoint &p) { Q_ASSERT(false); return debug; }
+static size_t qHash(QPoint key, size_t seed = 0) noexcept { Q_ASSERT(false); return 0; }
 
 class QPointF
 {
@@ -295,8 +295,8 @@ Q_DECLARE_TYPEINFO(QPointF, Q_PRIMITIVE_TYPE);
 
 size_t qHash(QPointF, size_t seed = 0) = delete;
 
-QDataStream &operator<<(QDataStream &s, const QPointF &p) { Q_ASSERT(false); return s; }
-QDataStream &operator>>(QDataStream &s, QPointF &p) { Q_ASSERT(false); return s; }
+static QDataStream &operator<<(QDataStream &s, const QPointF &p) { Q_ASSERT(false); return s; }
+static QDataStream &operator>>(QDataStream &s, QPointF &p) { Q_ASSERT(false); return s; }
 
 constexpr inline QPointF::QPointF() noexcept : xp(0), yp(0) { }
 
@@ -378,24 +378,24 @@ constexpr inline QPoint QPointF::toPoint() const
     return QPoint(qRound(xp), qRound(yp));
 }
 
-QDebug operator<<(QDebug d, const QPointF &p) { Q_ASSERT(false); return d; }
+static QDebug operator<<(QDebug d, const QPointF &p) { Q_ASSERT(false); return d; }
 
-//zhaoyujie TODO
-//namespace std {
-//    template <>
-//    class tuple_size<QT_PREPEND_NAMESPACE(QPoint)> : public integral_constant<size_t, 2> {};
-//    template <>
-//    class tuple_element<0, QT_PREPEND_NAMESPACE(QPoint)> { public: using type = int; };
-//    template <>
-//    class tuple_element<1, QT_PREPEND_NAMESPACE(QPoint)> { public: using type = int; };
-//
-//    template <>
-//    class tuple_size<QT_PREPEND_NAMESPACE(QPointF)> : public integral_constant<size_t, 2> {};
-//    template <>
-//    class tuple_element<0, QT_PREPEND_NAMESPACE(QPointF)> { public: using type = QT_PREPEND_NAMESPACE(qreal); };
-//    template <>
-//    class tuple_element<1, QT_PREPEND_NAMESPACE(QPointF)> { public: using type = QT_PREPEND_NAMESPACE(qreal); };
-//}
+//tuple_element中调用了类成员的get函数，配合下可以使用结构绑定语法
+namespace std {
+    template <>
+    class tuple_size<QT_PREPEND_NAMESPACE(QPoint)> : public integral_constant<size_t, 2> {};
+    template <>
+    class tuple_element<0, QT_PREPEND_NAMESPACE(QPoint)> { public: using type = int; };
+    template <>
+    class tuple_element<1, QT_PREPEND_NAMESPACE(QPoint)> { public: using type = int; };
+
+    template <>
+    class tuple_size<QT_PREPEND_NAMESPACE(QPointF)> : public integral_constant<size_t, 2> {};
+    template <>
+    class tuple_element<0, QT_PREPEND_NAMESPACE(QPointF)> { public: using type = QT_PREPEND_NAMESPACE(qreal); };
+    template <>
+    class tuple_element<1, QT_PREPEND_NAMESPACE(QPointF)> { public: using type = QT_PREPEND_NAMESPACE(qreal); };
+}
 
 QT_END_NAMESPACE
 
