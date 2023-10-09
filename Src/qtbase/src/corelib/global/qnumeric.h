@@ -44,6 +44,7 @@ QT_WARNING_DISABLE_FLOAT_COMPARE
 }
 QT_WARNING_POP
 
+//判断浮点是否在正确范围内（不是无穷大或者NaN）
 [[nodiscard]] constexpr bool qIsFinite(double d) noexcept
 {
     return std::isfinite(d);

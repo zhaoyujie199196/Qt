@@ -338,6 +338,22 @@ const inline const T qAbs(const T &t)
 #  define Q_ATTRIBUTE_FORMAT_PRINTF(A, B)
 #endif
 
+#if defined(QT_SHARED) || !defined(QT_STATIC)
+#  ifdef QT_STATIC
+#    error "Both QT_SHARED and QT_STATIC defined, please make up your mind"
+#  endif
+#  ifndef QT_SHARED
+#    define QT_SHARED
+#  endif
+#  if defined(QT_BUILD_CORE_LIB)
+#    define Q_CORE_EXPORT Q_DECL_EXPORT
+#  else
+#    define Q_CORE_EXPORT Q_DECL_IMPORT
+#  endif
+#else
+#  define Q_CORE_EXPORT
+#endif
+
 #include <QtCore/qtypeinfo.h>
 
 #include <QtCore/qflags.h>

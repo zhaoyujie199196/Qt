@@ -1,0 +1,1 @@
+qt_add_test_helper(TST_QMARGINS ${CMAKE_CURRENT_SOURCE_DIR}/tst_qmargins.cpp)

@@ -40,6 +40,8 @@ inline constexpr bool qIsRelocatable = std::is_trivially_copyable_v<T> && std::i
  * 3.可以通过位拷贝复制的枚举类型。
  * 4.可以通过位拷贝复制的指针类型。
  * 如果一个类型是平凡类型，则它可以安全地使用位拷贝和移动构造函数，以及其他要求类型是平凡的操作。
+ *
+ * 平凡类型：https://blog.csdn.net/lr_shadow/article/details/122980868
  */
 
 /*
