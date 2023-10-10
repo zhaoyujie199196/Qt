@@ -96,8 +96,8 @@ private:
 };
 Q_DECLARE_TYPEINFO(QSize, Q_RELOCATABLE_TYPE);
 
-QDataStream &operator<<(QDataStream &s, const QSize &) { Q_ASSERT(false); return s;  }
-QDataStream &operator>>(QDataStream &s, QSize &) { Q_ASSERT(false); return s; }
+Q_CORE_EXPORT QDataStream &operator<<(QDataStream &s, const QSize &);
+Q_CORE_EXPORT QDataStream &operator>>(QDataStream &s, QSize &);
 
 constexpr inline QSize::QSize() noexcept : wd(-1), ht(-1) {}
 
@@ -187,7 +187,7 @@ constexpr inline QSize QSize::boundedTo(const QSize & otherSize) const noexcept
     return QSize(qMin(wd,otherSize.wd), qMin(ht,otherSize.ht));
 }
 
-QDebug operator<<(QDebug d, const QSize &) { Q_ASSERT(false); return d; }
+QDebug operator<<(QDebug d, const QSize &);
 
 class QSizeF
 {
@@ -275,8 +275,8 @@ private:
 
 Q_DECLARE_TYPEINFO(QSizeF, Q_RELOCATABLE_TYPE);
 
-QDataStream &operator<<(QDataStream &s, const QSizeF &) { Q_ASSERT(false); return s; }
-QDataStream &operator>>(QDataStream &s, QSizeF &) { Q_ASSERT(false); return s; }
+QDataStream &operator<<(QDataStream &s, const QSizeF &);
+QDataStream &operator>>(QDataStream &s, QSizeF &);
 
 constexpr inline QSizeF::QSizeF() noexcept : wd(-1.), ht(-1.) {}
 
@@ -367,7 +367,7 @@ constexpr inline QSize QSizeF::toSize() const noexcept
     return QSize(qRound(wd), qRound(ht));
 }
 
-QDebug operator<<(QDebug d, const QSizeF &) { Q_ASSERT(false); return d; }
+Q_CORE_EXPORT QDebug operator<<(QDebug d, const QSizeF &);
 
 namespace std {
     template <>

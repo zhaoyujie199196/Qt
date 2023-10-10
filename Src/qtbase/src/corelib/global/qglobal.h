@@ -9,6 +9,7 @@
 #include <stdint.h>
 #include <cstddef>
 #include <type_traits>
+#include <cmath>
 
 #include <QtCore/qconfig.h>
 #include <QtCore/qtcore-config.h>
@@ -323,6 +324,14 @@ constexpr inline qint64 qRound64(float d)
 template <typename T>
 const inline const T qAbs(const T &t)
 { return abs(t); }
+
+template <typename T>
+const inline const T qFloor(const T &t)
+{ return std::floor(t); }
+
+template <typename T>
+const inline const T qCeil(const T &t)
+{ return std::ceil(t); }
 
 // printf格式检查
 // enable gcc warnings for printf-style functions

@@ -60,4 +60,28 @@ QSizeF QSizeF::scaled(const QSizeF &s, Qt::AspectRatioMode mode) const noexcept
     }
 }
 
+QDebug operator<<(QDebug d, const QSizeF &) {
+    Q_ASSERT(false); return d;
+}
+
+QDataStream &operator<<(QDataStream &s, const QSize &) {
+    Q_ASSERT(false); return s;
+}
+
+QDataStream &operator>>(QDataStream &s, QSize &) {
+    Q_ASSERT(false); return s;
+}
+
+QDataStream &operator<<(QDataStream &s, const QSizeF &) {
+    Q_ASSERT(false); return s;
+}
+
+QDataStream &operator>>(QDataStream &s, QSizeF &) {
+    Q_ASSERT(false); return s;
+}
+
+QDebug operator<<(QDebug d, const QSize &) {
+    Q_ASSERT(false); return d;
+}
+
 QT_END_NAMESPACE

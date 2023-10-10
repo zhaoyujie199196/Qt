@@ -76,8 +76,8 @@ private:
 
 Q_DECLARE_TYPEINFO(QMargins, Q_RELOCATABLE_TYPE);
 
-Q_CORE_EXPORT QDataStream &operator<<(QDataStream &s, const QMargins &) { return s; }
-Q_CORE_EXPORT QDataStream &operator>>(QDataStream &s, QMargins &) { return s; }
+Q_CORE_EXPORT QDataStream &operator<<(QDataStream &s, const QMargins &);
+Q_CORE_EXPORT QDataStream &operator>>(QDataStream &s, QMargins &);
 
 constexpr inline QMargins::QMargins() noexcept : m_left(0), m_top(0), m_right(0), m_bottom(0) {}
 
@@ -241,7 +241,7 @@ constexpr inline QMargins operator-(const QMargins &margins) noexcept
     return QMargins(-margins.left(), -margins.top(), -margins.right(), -margins.bottom());
 }
 
-Q_CORE_EXPORT QDebug operator<<(QDebug debug, const QMargins &) { Q_ASSERT(false); return debug; }
+Q_CORE_EXPORT QDebug operator<<(QDebug debug, const QMargins &);
 
 class QMarginsF
 {
@@ -309,8 +309,8 @@ private:
 };
 Q_DECLARE_TYPEINFO(QMarginsF, Q_RELOCATABLE_TYPE);
 
-Q_CORE_EXPORT QDataStream &operator<<(QDataStream &s, const QMarginsF &) { Q_ASSERT(false); return s; }
-Q_CORE_EXPORT QDataStream &operator>>(QDataStream &s, QMarginsF &) { Q_ASSERT(false); return s; }
+Q_CORE_EXPORT QDataStream &operator<<(QDataStream &s, const QMarginsF &);
+Q_CORE_EXPORT QDataStream &operator>>(QDataStream &s, QMarginsF &);
 
 constexpr inline QMarginsF::QMarginsF() noexcept
         : m_left(0), m_top(0), m_right(0), m_bottom(0) {}
@@ -456,7 +456,7 @@ constexpr inline QMargins QMarginsF::toMargins() const noexcept
     return QMargins(qRound(m_left), qRound(m_top), qRound(m_right), qRound(m_bottom));
 }
 
-Q_CORE_EXPORT QDebug operator<<(QDebug debug, const QMarginsF &) { return debug; }
+Q_CORE_EXPORT QDebug operator<<(QDebug debug, const QMarginsF &);
 
 namespace std {
     template <>
