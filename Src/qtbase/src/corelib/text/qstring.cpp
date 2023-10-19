@@ -1543,6 +1543,7 @@ void QString::setNum(int i, int base)
 QString QString::number(int i, int base)
 {
     //zhaoyujie TODO
+#pragma message("QString number未实现")
     auto s = std::to_string(i);
     return QString::fromStdString(s);
 }

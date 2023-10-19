@@ -22,7 +22,7 @@ class QBitArray
 {
     friend QDataStream &operator<<(QDataStream &, const QBitArray &);
     friend QDataStream &operator>>(QDataStream &, QBitArray &);
-//    friend size_t qHash(const QBitArray &key, size_t seed) noexcept;
+    friend size_t qHash(const QBitArray &key, size_t seed) noexcept;
 public:
     inline QBitArray() noexcept {}
     explicit QBitArray(qsizetype, bool val = false);

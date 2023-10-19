@@ -16,6 +16,7 @@
 
 #include "qcompilerdetection.h"
 #include "qprocessordetection.h"
+#include "qsystemdetection.h"
 
 #define QT_PREPEND_NAMESPACE(name) ::name
 
@@ -362,6 +363,9 @@ const inline const T qCeil(const T &t)
 #else
 #  define Q_CORE_EXPORT
 #endif
+
+Q_CORE_EXPORT int qEnvironmentVariableIntValue(const char *varName, bool *ok = nullptr) noexcept ;
+
 
 #include <QtCore/qtypeinfo.h>
 

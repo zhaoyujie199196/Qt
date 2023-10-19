@@ -41,7 +41,7 @@ namespace QtPrivate
 
         bool isShared() const noexcept {
             int count = atomic.loadRelaxed();
-            return (count != -1) && (count != 0);  //zhaoyujie TODO 这里不应该判断是否为1？
+            return (count != 1) && (count != 0);
         }
 
         void initializeOwned() noexcept {atomic.storeRelaxed(1);}

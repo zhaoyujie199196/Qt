@@ -18,3 +18,11 @@ void qt_check_pointer(const char *, int) noexcept
     Q_ASSERT(false);
     std::terminate();
 }
+
+//从环境中获取环境半两的值
+int qEnvironmentVariableIntValue(const char *varName, bool *ok) noexcept
+{
+    //zhaoyujie TODO
+#pragma message ("qEnvironmentVariableIntValue未实现")
+    return 0;
+}

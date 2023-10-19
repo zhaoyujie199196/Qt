@@ -195,6 +195,41 @@ namespace QtPrivate {
         c->reserve(static_cast<typename Container::size_type>(std::distance(f, l)));
     }
 
+    //迭代器是否含有key和value
+    template <typename Iterator, typename = std::void_t<>>
+    struct AssociativeIteratorHasKeyAndValue : std::false_type
+    {
+    };
+    template <typename Iterator>
+    struct AssociativeIteratorHasKeyAndValue<
+            Iterator,
+            std::void_t<decltype(std::declval<Iterator &>().key()),
+                        decltype(std::declval<Iterator &>().value())>
+            >
+            : std::true_type
+    {
+    };
+
+    //迭代器是否含有first和second
+    template <typename Iterator, typename = std::void_t<>, typename = std::void_t<>>
+    struct AssociativeIteratorHasFirstAndSecond : std::false_type
+    {};
+
+    template <typename Iterator>
+    struct AssociativeIteratorHasFirstAndSecond<
+            Iterator,
+            std::void_t<decltype(std::declval<Iterator &>()->first),
+                        decltype(std::declval<Iterator &>()->second)>
+            >
+            : std::true_type
+    {};
+
+    template <typename Iterator>
+    using IfAssociativeIteratorHasKeyAndValue = typename std::enable_if<AssociativeIteratorHasKeyAndValue<Iterator>::value, bool>::type;
+    template <typename Iterator>
+    using IfAssociativeIteratorHasFirstAndSecond = typename std::enable_if<AssociativeIteratorHasFirstAndSecond<Iterator>::value, bool>::type;
+
+
     // Prerequisite: F is invocable on ArgTypes
     template <typename R, typename F, typename ... ArgTypes>
     struct is_invoke_result_explicitly_convertible : std::is_constructible<R, std::invoke_result_t<F, ArgTypes...>>
