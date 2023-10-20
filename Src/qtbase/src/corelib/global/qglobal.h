@@ -238,6 +238,13 @@ QT_END_NAMESPACE
 #define QT_CATCH(A) catch(A)
 #define QT_THROW(A) throw A
 
+#ifndef Q_INLINE_TEMPLATE
+#  define Q_INLINE_TEMPLATE inline
+#endif
+#ifndef Q_OUTOFLINE_TEMPLATE
+#  define Q_OUTOFLINE_TEMPLATE
+#endif
+
 void qt_assert(const char *assertion, const char *file, int line) noexcept;
 void qt_assert_x(const char *where, const char *what, const char *file, int line) noexcept;
 

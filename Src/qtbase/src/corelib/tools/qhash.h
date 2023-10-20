@@ -14,6 +14,10 @@
 
 /*
  * QHash 不允许key重复的元素
+ * QMultiHash允许key重复
+ * Node为存放数据的节点，QHash为Node，QMultiHash为NodeChain
+ * 插入元素，对Key做hash处理，hash碰撞往后面插入
+ * 删除元素时，需要因为碰撞插入在后面的值前移填补空洞
  * */
 
 class tst_QHash;
@@ -144,6 +148,23 @@ namespace QHashPrivate
         using KeyType = Key;
         using ValueType = QHashDummyValue;
         Key key;
+
+        template <typename ...Args>
+        static void createInPlace(Node *n, Key &&key, Args &&...) {
+            new (n) Node{ std::move(key) };
+        }
+
+        template <typename  ...Args>
+        static void createInPlace(Node *n, const Key &key, Args &&...) {
+            new (n) Node{ key };
+        }
+
+        template <typename ...Args>
+        void emplaceValue(Args &&...) {
+
+        }
+        ValueType TakeValue() { return QHashDummyValue(); }
+        bool valuesEqual(const Node *) { return true; }
     };
 
     //multiHash节点链中的链表节点
@@ -765,7 +786,7 @@ public:
     }
 
     QHash(QHash &&other) noexcept
-        : d(qExchange(d, other.d)) {
+        : d(std::exchange(other.d, nullptr)) {
 
     }
 
