@@ -10,6 +10,14 @@
 QT_BEGIN_NAMESPACE
 
 //实现变量值的回滚
+/*
+ * 引用可以相互传递
+ * int a = 1;
+ * int &b = a;
+ * int &c = b;
+ * c = 2;
+ * 此时 a 的值为 2
+ */
 template <typename T>
 class QScopedValueRollback
 {

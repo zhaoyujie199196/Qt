@@ -8,7 +8,6 @@
 #include <QtCore/qglobal.h>
 #include <QtCore/qatomic.h>
 #include <QtCore/qshareddata.h>
-#include <QtCore/qobject.h>
 #include <QtCore/qhashfunctions.h>
 #include <memory>
 #include <new>
@@ -26,7 +25,7 @@ QSharedPointer<X> qSharedPointerDynamicCast(const QSharedPointer<T> &ptr);
 template <class X, class T>
 QSharedPointer<X> qSharedPointerConstCast(const QSharedPointer<T> &ptr);
 
-
+class QObject;
 namespace QtSharedPointer {
 
 #define QT_SHAREDPOINTER_TYPEDEF(T) \

@@ -11,8 +11,10 @@
 #include <QtCore/qbytearray.h>
 #include <QtCore/qbitarray.h>
 #include <QtCore/qstring.h>
-#include <QtCore/qobject.h>
 #include <QtCore/qcontainerfwd.h>
+#include <QtCore/qobjectdefs.h>
+#include <QtCore/qsharedpointer.h>
+#include <QtCore/qpointer.h>
 #include <array>
 #include <string>
 #include <string_view>
@@ -22,6 +24,8 @@
 QT_BEGIN_NAMESPACE
 
 class QByteArrayView;
+class QObject;
+
 //zhaoyujie TODO QCborSimpleType的作用是什么
 enum class QCborSimpleType : quint8;
 
@@ -104,7 +108,26 @@ inline constexpr int qMetaTypeId();
 #define QT_DEFINE_METATYPE_ID(TypeName, Id, Name) \
     TypeName = Id,
 
+#define QT_FOR_EACH_AUTOMATIC_TEMPLATE_SMART_POINTER(F) \
+    F(QSharedPointer) \
+    F(QWeakPointer) \
+    F(QPointer)
+
 struct QMetaObject;
+
+namespace detail {
+    template<typename T, typename ODR_VIOLATION_PREVENTER>
+    struct is_complete_helper
+    {
+        template<typename U>
+        static auto check(U *) -> std::integral_constant<bool, sizeof(U) != 0>;
+        static auto check(...) -> std::false_type;
+        using type = decltype(check(static_cast<T *>(nullptr)));
+    };
+} // namespace detail
+
+template <typename T, typename ODR_VIOLATION_PREVENTER>
+struct is_complete : detail::is_complete_helper<T, ODR_VIOLATION_PREVENTER>::type {};
 
 namespace QtPrivate
 {
@@ -561,7 +584,56 @@ constexpr QMetaType QMetaType::fromType() {
     return QMetaType(QtPrivate::qMetaTypeInterfaceForType<T>());
 }
 
+namespace QtPrivate {
+
+    template<typename T>
+    struct qRemovePointerLike
+    {
+        using type = std::remove_pointer_t<T>;
+    };
+
+    #define Q_REMOVE_POINTER_LIKE_IMPL(Pointer) \
+    template <typename T> \
+    struct qRemovePointerLike<Pointer<T>> \
+    { \
+        using type = T; \
+    };
+
+    QT_FOR_EACH_AUTOMATIC_TEMPLATE_SMART_POINTER(Q_REMOVE_POINTER_LIKE_IMPL)
+    template<typename T>
+    using qRemovePointerLike_t = typename qRemovePointerLike<T>::type;
+#undef Q_REMOVE_POINTER_LIKE_IMPL
+
+    template<typename T, typename ForceComplete_>
+    struct TypeAndForceComplete
+    {
+        using type = T;
+        using ForceComplete = ForceComplete_;
+    };
+
+    template<typename Unique, typename TypeCompletePair>
+    constexpr const QMetaTypeInterface *qTryMetaTypeInterfaceForType()
+    {
+        using T = typename TypeCompletePair::type;
+        using ForceComplete = typename TypeCompletePair::ForceComplete;
+        using Ty = std::remove_cv_t<std::remove_reference_t<T>>;
+        using Tz = qRemovePointerLike_t<Ty>;
+        if constexpr (!is_complete<Tz, Unique>::value && !ForceComplete::value) {
+            return nullptr;
+        } else {
+            return &QMetaTypeInterfaceWrapper<Ty>::metaType;
+        }
+    }
+}
+
+template<typename Unique,typename... T>
+constexpr const QtPrivate::QMetaTypeInterface *const qt_incomplete_metaTypeArray[] = {
+        QtPrivate::qTryMetaTypeInterfaceForType<Unique, T>()...
+};
+
+
 #undef QT_DEFINE_METATYPE_ID
+
 
 QT_END_NAMESPACE
 

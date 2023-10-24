@@ -8,6 +8,10 @@
 #include <QtCore/private/qglobal_p.h>
 #include "qrandom.h"
 
+/*
+ * 随机数：https://blog.csdn.net/fengye_csdn/article/details/120843570
+ * */
+
 QT_BEGIN_NAMESPACE
 
 //生成初始化的随即值

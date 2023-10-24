@@ -24,6 +24,13 @@
 #define QT_BEGIN_NAMESPACE
 #define QT_END_NAMESPACE
 
+#ifndef QT_BEGIN_MOC_NAMESPACE
+# define QT_BEGIN_MOC_NAMESPACE
+#endif
+#ifndef QT_END_MOC_NAMESPACE
+# define QT_END_MOC_NAMESPACE
+#endif
+
 #define QT_BEGIN_INCLUDE_NAMESPACE
 #define QT_END_INCLUDE_NAMESPACE
 
@@ -44,6 +51,9 @@
 #  define Q_NEVER_INLINE
 #  define Q_ALWAYS_INLINE inline
 #endif
+
+#define Q_D(Class) Class##Private * const d = d_func()
+#define Q_Q(Class) Class * const q = q_func()
 
 //禁止拷贝构造
 #define Q_DISABLE_COPY(Class) \
@@ -373,6 +383,35 @@ const inline const T qCeil(const T &t)
 
 Q_CORE_EXPORT int qEnvironmentVariableIntValue(const char *varName, bool *ok = nullptr) noexcept ;
 
+template <typename T>
+inline T *qGetPtrHelper(T *ptr) noexcept {
+    return ptr;
+}
+
+template <typename Ptr>
+inline auto qGetPtrHelper(Ptr &ptr) noexcept ->decltype(ptr.get()) {
+    static_assert(noexcept(ptr.get()));
+    return ptr.get();
+}
+
+#define Q_CAST_IGNORE_ALIGN(body) QT_WARNING_PUSH QT_WARNING_DISABLE_GCC("-Wcast-align") body QT_WARNING_POP
+
+//类中声明private数据的接口
+#define Q_DECLARE_PRIVATE(Class) \
+    inline Class##Private* d_func() noexcept \
+    {                                \
+        Q_CAST_IGNORE_ALIGN(return reinterpret_cast<Class##Private *>(qGetPtrHelper(d_ptr)));                            \
+    }                                \
+    inline const Class##Private* d_func() const noexcept                                                                 \
+    {                                \
+        Q_CAST_IGNORE_ALIGN(return reinterpret_cast<const Class##Private *>(qGetPtrHelper(d_ptr))); \
+    }                                \
+    friend class Class##Private; \
+
+#define Q_DECLARE_PUBLIC(Class) \
+    inline Class *q_func() noexcept { return static_cast<Class *>(q_ptr); } \
+    inline const Class *q_func() const noexcept { return static_cast<const Class *>(q_ptr); } \
+    friend class Class;
 
 #include <QtCore/qtypeinfo.h>
 
