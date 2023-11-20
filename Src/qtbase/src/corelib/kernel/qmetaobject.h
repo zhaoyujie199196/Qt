@@ -63,11 +63,63 @@ public:
 
 };
 
-//元方法
+/*
+ * 元方法
+ * 元方法包括signal，slot，invoke方法
+ * 排列顺序：signal slot invoke
+ * */
 class QMetaMethod
 {
+    friend class QMetaMethodPrivate;
+    friend struct QMetaObject;
+    friend struct QMetaObjectPrivate;
+    friend class QObject;
 
+    struct Data {
+        enum { Size = 6 };
+        uint name() const { return d[0]; }  //method名称索引
+        uint argc() const { return d[1]; }  //参数个数
+        uint parameters() const { return d[2]; }  //参数类型索引
+        uint tag() const { return d[3]; }
+        uint flags() const { return d[4]; }
+        uint metaTypeOffset() const { return d[5]; } //zhaoyujie TODO 啥意思？
+        bool operator==(const Data &other) const { return d == other.d; }
+
+        const uint *d;  //method信息的起始指针
+    };
+
+public:
+    enum MethodType {
+        Method,  //zhaoyujie TODO
+        Signal,  //信号函数
+        Slot,    //槽函数
+        Constructor  //构造函数
+    };
+
+    constexpr inline QMetaMethod() : mobj(nullptr), data({nullptr}) {}
+
+    QByteArray methodSignature() const;
+    inline bool isValid() const { return mobj != nullptr; }
+    MethodType methodType() const;
+    int relativeMethodIndex() const;
+    int parameterCount() const;
+    int methodIndex() const;
+
+    inline const QMetaObject *enclosingMetaObject() const { return mobj; }
+
+private:
+    friend bool operator==(const QMetaMethod &m1, const QMetaMethod &m2) noexcept
+    { return m1.data == m2.data; }
+    friend bool operator!=(const QMetaMethod &m1, const QMetaMethod &m2) noexcept
+    { return !(m1 == m2); }
+
+    static QMetaMethod fromRelativeMethodIndex(const QMetaObject *mobj, int index);
+
+private:
+    const QMetaObject *mobj;
+    Data data;
 };
+Q_DECLARE_TYPEINFO(QMetaMethod, Q_RELOCATABLE_TYPE);
 
 //类的元信息
 class QMetaClassInfo

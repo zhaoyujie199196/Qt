@@ -624,6 +624,10 @@ namespace QtPrivate {
             return &QMetaTypeInterfaceWrapper<Ty>::metaType;
         }
     }
+
+    constexpr int qNormalizeType(const char *begin, const char *end, char *output) {
+        return QTypeNormalizer {output}.normalizeType(begin, end);
+    }
 }
 
 template<typename Unique,typename... T>

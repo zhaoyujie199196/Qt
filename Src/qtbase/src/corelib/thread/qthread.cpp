@@ -27,5 +27,13 @@ void QThreadData::deref() {
     }
 }
 
+QThread *QThread::currentThread() {
+    return nullptr;
+}
+
+Qt::HANDLE QThread::currentThreadId() noexcept {
+    return nullptr;
+}
+
 QT_END_NAMESPACE
 

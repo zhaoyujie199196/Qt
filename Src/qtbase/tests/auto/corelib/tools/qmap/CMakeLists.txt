@@ -1,1 +1,1 @@
-qt_add_test_helper(TST_QMAP ${CMAKE_CURRENT_SOURCE_DIR}/tst_qmap.cpp)
+qt_add_test_helper(TST_QMAP)

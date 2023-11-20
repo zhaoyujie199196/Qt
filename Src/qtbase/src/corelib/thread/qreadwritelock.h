@@ -25,7 +25,7 @@ public:
     bool tryLockForRead(int timeout) {return true;}
 
     void lockForWrite() {}
-    bool tryLockForWrite() { return true;}
+    bool tryLockForWrite() { return false;}
     bool tryLockForWrite(int timeout) {return true;}
 
     void unlock() {}

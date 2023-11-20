@@ -1,1 +1,1 @@
-qt_add_test_helper(TST_QSTRINGVIEW ${CMAKE_CURRENT_SOURCE_DIR}/tst_qstringview.cpp)
+qt_add_test_helper(TST_QSTRINGVIEW)

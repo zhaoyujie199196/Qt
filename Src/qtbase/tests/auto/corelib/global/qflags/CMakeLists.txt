@@ -1,1 +1,1 @@
-qt_add_test_helper(TST_QFLAGS ${CMAKE_CURRENT_SOURCE_DIR}/tst_qflags.cpp)
+qt_add_test_helper(TST_QFLAGS)

@@ -1,1 +1,1 @@
-qt_add_test_helper(TST_QPOINT ${CMAKE_CURRENT_SOURCE_DIR}/tst_qpoint.cpp)
+qt_add_test_helper(TST_QPOINT)

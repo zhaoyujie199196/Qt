@@ -90,6 +90,18 @@ namespace Qt {
         KeepAspectRatio,  //保持宽高比
         KeepAspectRatioByExpanding  //扩展保持宽高比
     };
+
+    //信号槽连接类型
+    enum ConnectionType {
+        AutoConnection,     //自动连接，根据发射者与接受者所处的线程自动选择
+        DirectConnection,   //直连，直接调用
+        QueuedConnection,   //放到线程队列中立刻返回
+        BlockingQueuedConnection,  //放到线程队列中并阻塞当前代码，等待槽函数执行完
+        UniqueConnection =  0x80,  //同一个连接只能连接一次
+        SingleShotConnection = 0x100,   //只触发一次，调用完毕自动断开连接
+    };
+
+    typedef void * HANDLE;
 }
 
 QT_END_NAMESPACE

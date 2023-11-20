@@ -36,6 +36,7 @@ static const struct {
     { nullptr, 0, QMetaType::UnknownType }
 };
 
+
 //注册方法的模板容器类
 struct QMetaTypeCustomRegistry
 {
@@ -569,6 +570,12 @@ static inline int qMetaTypeTypeImpl(const char *typeName, int length)
         }
     }
     return type;
+}
+
+//根据typeName获取metaTypeId
+Q_CORE_EXPORT int qMetaTypeTypeInternal(const char *typeName)
+{
+    return qMetaTypeTypeImpl<false>(typeName, int(qstrlen(typeName)));
 }
 
 QMetaType QMetaType::fromName(QByteArrayView typeName)

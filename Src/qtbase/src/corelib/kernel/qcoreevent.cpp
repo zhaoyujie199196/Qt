@@ -28,4 +28,35 @@ QDynamicPropertyChangeEvent::~QDynamicPropertyChangeEvent()
 
 }
 
+QChildEvent::QChildEvent(Type type, QObject *child)
+    : QEvent(type), c(child)
+{
+
+}
+
+QChildEvent::~QChildEvent() noexcept
+{
+
+}
+
+QTimerEvent::QTimerEvent(int timerId)
+    : QEvent(Timer)
+    , id(timerId)
+{
+}
+
+QTimerEvent::~QTimerEvent()
+{
+}
+
+QDeferredDeleteEvent::QDeferredDeleteEvent()
+    : QEvent(QEvent::DeferredDelete)
+    , level(0)
+{
+}
+
+QDeferredDeleteEvent::~QDeferredDeleteEvent()
+{
+}
+
 QT_END_NAMESPACE

@@ -61,16 +61,29 @@ private: \
     \
     Q_DECL_HIDDEN_STATIC_METACALL static void qt_static_metacall(QObject *, QMetaObject::Call, int, void **); \
     QT_WARNING_POP \
-    struct QPrivateSignals{}; \
+    struct QPrivateSignal {}; \
     QT_ANNOTATE_CLASS(qt_qobject, "")
-
 
 
 
 //#define Q_INVOKABLE  QT_ANNOTATE_FUNCTION(qt_invokable)
 #define Q_INVOKABLE
+//#define Q_SCRIPTABLE QT_ANNOTATE_FUNCTION(qt_scriptable)
+#define Q_SCRIPTABLE
 
 #define Q_PROPERTY(...) QT_ANNOTATE_CLASS(qt_property, __VA_ARGS__)
+
+#define slots QT_ANNOTATE_ACCESS_SPECIFIER(qt_slot)
+#define signals public QT_ANNOTATE_ACCESS_SPECIFIER(qt_signal)
+#define Q_SIGNALS signals
+#define Q_SLOTS slots
+
+#ifndef QT_MOC_COMPAT
+#  define QT_MOC_COMPAT
+#else
+#  undef QT_MOC_COMPAT
+#  define QT_MOC_COMPAT
+#endif
 
 QT_END_NAMESPACE
 

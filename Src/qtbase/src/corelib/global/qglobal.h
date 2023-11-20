@@ -18,6 +18,9 @@
 #include "qprocessordetection.h"
 #include "qsystemdetection.h"
 
+#define QT_VERSION      QT_VERSION_CHECK(QT_VERSION_MAJOR, QT_VERSION_MINOR, QT_VERSION_PATCH)
+#define QT_VERSION_CHECK(major, minor, patch) ((major<<16)|(minor<<8)|(patch))
+
 #define QT_PREPEND_NAMESPACE(name) ::name
 
 #define QT_USE_NAMESPACE
@@ -40,6 +43,9 @@
 #define Q_EXPLICIT
 #endif
 
+#define QT_STRINGIFY2(x) #x
+#define QT_STRINGIFY(x) QT_STRINGIFY2(x)
+
 //禁止内联
 #ifdef Q_CC_MSVC
 #  define Q_NEVER_INLINE __declspec(noinline)
@@ -61,7 +67,7 @@
     Class &operator=(const Class &) = delete;
 
 //禁止移动构造与拷贝构造
-#define Q_DISABLE_COPY_MOVE(class) \
+#define Q_DISABLE_COPY_MOVE(Class) \
     Q_DISABLE_COPY(Class)          \
     Class(Class &&) = delete;      \
     Class &operator=(Class &&) = delete;
@@ -167,6 +173,8 @@ for (auto  _container_ = QtPrivate::qMakeForeachContainer(container); _container
 
 
 #define Q_ASSERT(cond) assert(cond)
+#define Q_ASSERT_X(cond, where, what) assert(cond)
+
 
 QT_BEGIN_NAMESPACE
 

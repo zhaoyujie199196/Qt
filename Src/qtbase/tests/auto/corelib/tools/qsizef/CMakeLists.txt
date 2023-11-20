@@ -1,1 +1,1 @@
-qt_add_test_helper(TST_QSIZEF ${CMAKE_CURRENT_SOURCE_DIR}/tst_qsizef.cpp)
+qt_add_test_helper(TST_QSIZEF)
