@@ -6,6 +6,8 @@
 #define TST_QOBJECTHELPER_H
 
 #include <QtCore/QObject>
+#include <QList>
+#include <QString>
 
 class SenderObject : public QObject
 {
@@ -112,5 +114,116 @@ public slots:
     void slot3() { sequence_slot3 = ++sequence; count_slot3++; }
     void slot4() { sequence_slot4 = ++sequence; count_slot4++; }
 };
+
+class AutoConnectSender : public QObject
+{
+    Q_OBJECT
+
+public:
+    AutoConnectSender(QObject *parent)
+        : QObject(parent){
+    }
+
+    void emitSignalNoParams() {
+        emit signalNoParams();
+    }
+    void emitSignalWithParams(int i) {
+        emit signalWithParams(i);
+    }
+    void emitSignalWithParams(int i, QString string) {
+        emit signalWithParams(i, string);
+    }
+    void emitSignalManyParams(int i1, int i2, int i3, QString string, bool onoff) {
+        emit signalManyParams(i1, i2, i3, string, onoff);
+    }
+    void emitSignalManyParams(int i1, int i2, int i3, QString string, bool onoff, bool dummy) {
+        emit signalManyParams(i1, i2, i3, string, onoff, dummy);
+    }
+    void emitSignalManyParams2(int i1, int i2, int i3, QString string, bool onoff) {
+        emit signalManyParams2(i1, i2, i3, string, onoff);
+    }
+    void emitSignalLoopBack() {
+        emit signalLoopBack();
+    }
+
+signals:
+    void signalNoParams();
+    void signalWithParams(int i);
+    void signalWithParams(int i, QString string);
+    void signalManyParams(int i1, int i2, int i3, QString string, bool onoff);
+    void signalManyParams(int i1, int i2, int i3, QString string, bool onoff, bool);
+    void signalManyParams2(int i1, int i2, int i3, QString string, bool onoff);
+    void signalLoopBack();
+};
+
+class AutoConnectReceiver : public QObject
+{
+    Q_OBJECT
+
+public:
+    QList<int> called_slots;
+    AutoConnectReceiver()
+    {
+        connect(this, SIGNAL(on_Sender_signalLoopBack()), this, SLOT(slotLoopBack()));
+    }
+
+    void emitSignalNoParams() { emit signalNoParams(); }
+    void emit_signal_with_underscore() { emit signal_with_underscore(); }
+
+public slots:
+    void on_Sender_signalNoParams() {
+        called_slots << 1;
+    }
+    void on_Sender_signalWithParams(int = 0) {
+        called_slots << 2;
+    }
+    void on_Sender_signalWithParams(int, QString) {
+        called_slots << 3;
+    }
+    void on_Sender_signalManyParams() {
+        called_slots << 4;
+    }
+    void on_Sender_signalManyParams(int, int, int, QString, bool) {
+        called_slots << 5;
+    }
+    void on_Sender_signalManyParams(int, int, int, QString, bool, bool) {
+        called_slots << 6;
+    }
+    void on_Sender_signalManyParams2(int, int, int, QString, bool) {
+        called_slots << 7;
+    }
+    void slotLoopBack() {
+        called_slots << 8;
+    }
+    void on_Receiver_signalNoParams() {
+        called_slots << 9;
+    }
+    void on_Receiver_signal_with_underscore() {
+        called_slots << 10;
+    }
+
+protected slots:
+    void o() {
+        called_slots << -1;
+    }
+    void on() {
+        called_slots << -1;
+    }
+    void on_() {
+        called_slots << -1;
+    }
+    void on_something() {
+        called_slots << -1;
+    }
+    void on_child_signal() {
+        called_slots << -1;
+    }
+
+signals:
+    void on_Sender_signalLoopBack();
+    void signalNoParams();
+    void signal_with_underscore();
+};
+
 
 #endif //TST_QOBJECTHELPER_H

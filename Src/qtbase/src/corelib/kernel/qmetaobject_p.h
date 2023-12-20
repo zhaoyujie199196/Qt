@@ -181,6 +181,8 @@ struct QMetaObjectPrivate
     static bool checkConnectArgs(const QMetaMethodPrivate *signal, const QMetaMethodPrivate *method);
 
     static void memberIndexes(const QObject *obj, const QMetaMethod &member, int *signalIndex, int *methodIndex);
+
+    static int absoluteSignalCount(const QMetaObject *m);
 };
 
 static inline bool is_ident_char(char s)

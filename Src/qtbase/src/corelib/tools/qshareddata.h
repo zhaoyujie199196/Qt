@@ -83,7 +83,7 @@ public:
             if (ptr) {
                 ptr->ref.ref();
             }
-            T *old = qExhange(d, ptr);
+            T *old = qExchange(d, ptr);
             if (old && !old->ref.deref()) {
                 delete old;
             }
@@ -166,7 +166,11 @@ public:
 
     explicit QExplicitlySharedDataPointer(T *data) noexcept
         : d(data)
-    {}
+    {
+        if (d) {
+            d->ref.ref();
+        }
+    }
 
     QExplicitlySharedDataPointer(T *data, QAdoptSharedDataTag) noexcept
         : d(data)

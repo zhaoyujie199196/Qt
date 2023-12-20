@@ -97,6 +97,7 @@ struct QMetaObject
     static QByteArray normalizedType(const char *type);
 
     int propertyCount() const;
+    int methodCount() const;
 
     int methodOffset() const;
     //property的偏移，前面的property都是父类的属性，自己的属性放在后面
@@ -106,6 +107,7 @@ struct QMetaObject
     //根据名字查找property的索引
     int indexOfProperty(const char *name) const;
 
+    QMetaMethod method(int index) const;
     //获取property
     QMetaProperty property(int index) const;
 
@@ -123,6 +125,9 @@ struct QMetaObject
 
     static bool checkConnectArgs(const char *signal, const char *method);
     static bool checkConnectArgs(const QMetaMethod &signal, const QMetaMethod &method);
+
+    //sig1和on_sig1自动连接
+    static void connectSlotsByName(QObject *o);
 
 public:
     Data d;

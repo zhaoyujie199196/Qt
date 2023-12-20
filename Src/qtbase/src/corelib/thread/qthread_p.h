@@ -9,6 +9,7 @@
 
 QT_BEGIN_NAMESPACE
 
+class QThread;
 class QThreadData
 {
 public:
@@ -31,6 +32,8 @@ private:
 public:
     QAtomicPointer<void> threadId = QAtomicPointer<void>(nullptr);
     FlaggedDebugSignatures flaggedSignatures;
+
+    QAtomicPointer<QThread> thread;
 };
 
 QT_END_NAMESPACE

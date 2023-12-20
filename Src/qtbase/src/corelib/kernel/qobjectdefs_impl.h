@@ -440,6 +440,8 @@ namespace QtPrivate {
             m_impl(Call, this, r, a, nullptr);
         }
 
+        bool isImpl(ImplFn f) const { return m_impl == f; }
+
     protected:
         virtual ~QSlotObjectBase() {}
     private:

@@ -8,6 +8,7 @@
 #include <QtCore/qmutex.h>
 #include <QtCore/private/qthread_p.h>
 #include <QtCore/private/qtrace_p.h>
+#include <QtCore/qloggingcategory.h>
 #include "qobjectdefs.h"
 #include "qmetaobject_p.h"
 #include "qobject_p.h"
@@ -134,6 +135,7 @@ public:
     inline int parameterTypeInfo(int index) const;
     inline int parametersDataIndex() const;
     inline int ownMethodIndex() const;
+    inline QByteArray tag() const;
     inline QList<QByteArray> parameterTypes() const;
 };
 
@@ -179,6 +181,12 @@ int QMetaMethodPrivate::ownMethodIndex() const
     return (data.d - mobj->d.data - priv(mobj->d.data)->methodData) / Data::Size;
 }
 
+QByteArray QMetaMethodPrivate::tag() const
+{
+    Q_ASSERT(priv(mobj->d.data)->revision > 7);
+    return stringData(mobj, data.tag());
+}
+
 QList<QByteArray> QMetaMethodPrivate::parameterTypes() const
 {
     int argc = parameterCount();
@@ -200,6 +208,30 @@ QMetaProperty::QMetaProperty(const QMetaObject *mobj, int index)
         //zhaoyujie TODO 没明白这段代码什么意思
         Q_ASSERT(false);
     }
+}
+
+QMetaType QMetaProperty::metaType() const
+{
+    if (!mobj) {
+        return {};
+    }
+    return QMetaType(mobj->d.metaTypes[data.index(mobj)]);
+}
+
+int QMetaProperty::propertyIndex() const
+{
+    if (!mobj) {
+        return -1;
+    }
+    return data.index(mobj) + mobj->propertyOffset();
+}
+
+int QMetaProperty::relativePropertyIndex() const
+{
+    if (!mobj) {
+        return -1;
+    }
+    return data.index(mobj);
 }
 
 QMetaProperty::Data QMetaProperty::getMetaPropertyData(const QMetaObject *mobj, int index)
@@ -369,6 +401,16 @@ int QMetaObjectPrivate::indexOfSignalRelative(const QMetaObject **baseObject, co
 int QMetaObjectPrivate::indexOfSlotRelative(const QMetaObject **baseObject, const QByteArray &name, int argc,
                                             const QArgumentType *types) {
     return indexOfMethodRelative<MethodSlot>(baseObject, name, argc, types);
+}
+
+int QMetaObjectPrivate::absoluteSignalCount(const QMetaObject *m)
+{
+    Q_ASSERT(m != nullptr);
+    int n = priv(m->d.data)->signalCount;
+    for (m = m->d.superdata; m; m = m->d.superdata) {
+        n += priv(m->d.data)->signalCount;
+    }
+    return n;
 }
 
 template <int MethodType>
@@ -584,6 +626,17 @@ int QMetaObject::propertyCount() const
     return n;
 }
 
+int QMetaObject::methodCount() const
+{
+    int n = priv(d.data)->methodCount;
+    const QMetaObject *m = d.superdata;
+    while (m) {
+        n += priv(m->d.data)->methodCount;
+        m = m->d.superdata;
+    }
+    return n;
+}
+
 int QMetaObject::methodOffset() const
 {
     int offset = 0;
@@ -624,6 +677,19 @@ int QMetaObject::indexOfProperty(const char *name) const
     }
     Q_ASSERT(false);
     return -1;
+}
+
+QMetaMethod QMetaObject::method(int index) const
+{
+    int i = index;
+    i -= methodOffset();
+    if (i < 0 && d.superdata) {
+        return d.superdata->method(index);
+    }
+    if (i >= 0 && i < priv(d.data)->methodCount) {
+        return QMetaMethod::fromRelativeMethodIndex(this, i);
+    }
+    return QMetaMethod();
 }
 
 QMetaProperty QMetaObject::property(int index) const
@@ -687,6 +753,82 @@ QByteArray QMetaObject::normalizedSignature(const char *method)
         result += *d++;
     }
     return result;
+}
+
+void QMetaObject::connectSlotsByName(QObject *o) {
+    if (!o) {
+        return;
+    }
+    const QMetaObject *mo = o->metaObject();
+    Q_ASSERT(mo);
+
+    QObjectList list = o->findChildren<QObject *>(QString());
+    list << o;
+
+    for (int i = 0; i < mo->methodCount(); ++i) {
+        const QByteArray slotSignature = mo->method(i).methodSignature();
+        const char *slot = slotSignature.constData();
+        Q_ASSERT(slot);
+
+        //必须以on_开头
+        if (slot[0] != 'o' || slot[1] != 'n' || slot[2] != '_') {
+            continue;
+        }
+
+        bool foundIt = false;
+        for (int j = 0; j < list.count(); ++j) {
+            const QObject *co = list.at(j);
+            const QByteArray coName = co->objectName().toLatin1();
+            //receiver的objectName必须符合"on_<objectName>_<signal>"的格式
+            if (coName.isEmpty() || qstrncmp(slot + 3, coName.constData(), coName.size()) || slot[coName.size() + 3] != '_') {
+                continue;
+            }
+
+            const char *signal = slot + coName.size() + 4;
+
+            //符合on_<objectName>_<signal>格式
+            const QMetaObject *smeta;
+            int sigIndex = co->d_func()->signalIndex(signal, &smeta);
+            if (sigIndex < 0) {
+                QList<QByteArray> compatibleSignals;
+                const QMetaObject *smo = co->metaObject();
+                int sigLen = int(qstrlen(signal)) - 1;
+                for (int k = QMetaObjectPrivate::absoluteSignalCount(smo) - 1; k >= 0; --k) {
+                    const QMetaMethod method = QMetaObjectPrivate::signal(smo, k);
+                    if (!qstrncmp(method.methodSignature().constData(), signal, sigLen)) {
+                        smeta = method.enclosingMetaObject();
+                        sigIndex = k;
+                        compatibleSignals.prepend(method.methodSignature());
+                    }
+                }
+                if (compatibleSignals.size() > 1) {
+//                    qCWarning(lcConnectSlotsByName) << "QMetaObject::connectSlotsByName: Connecting slot" << slot
+//                                                                                                          << "with the first of the following compatible signals:" << compatibleSignals;
+                }
+            }
+            if (sigIndex < 0) {
+                continue;
+            }
+
+            if (Connection(QMetaObjectPrivate::connect(co, sigIndex, smeta, o, i))) {
+                foundIt = true;
+                break;
+            }
+        }
+        if (foundIt) {
+            while (mo->method(i + 1).attributes() & QMetaMethod::Cloned) {
+                ++i;
+            }
+        }
+        else if (!(mo->method(i).attributes() & QMetaMethod::Cloned)) {
+            int iParen = slotSignature.indexOf('(');
+            int iLastUnderscore = slotSignature.lastIndexOf('_', iParen - 1);
+            if (iLastUnderscore > 3) {
+                qCWarning(lcConnectSlotsByName,
+                          "QMetaObject::connectSlotsByName: No matching signal for %s", slot)
+            }
+        }
+    }
 }
 
 bool QMetaObject::checkConnectArgs(const char *signal, const char *method)
@@ -798,6 +940,13 @@ int QMetaMethod::methodIndex() const
         return -1;
     }
     return QMetaMethodPrivate::get(this)->ownMethodIndex() + mobj->methodOffset();
+}
+
+int QMetaMethod::attributes() const {
+    if (!mobj) {
+        return false;
+    }
+    return data.flags() >> 4;
 }
 
 QT_END_NAMESPACE

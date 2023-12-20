@@ -101,6 +101,13 @@ namespace Qt {
         SingleShotConnection = 0x100,   //只触发一次，调用完毕自动断开连接
     };
 
+    enum FindChildOption {
+        FindDirectChildrenOnly = 0x0,
+        FindChildrenRecursively = 0x1
+    };
+    Q_DECLARE_FLAGS(FindChildOptions, FindChildOption)
+
+
     typedef void * HANDLE;
 }
 

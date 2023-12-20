@@ -1,0 +1,1 @@
+qt_add_test_helper(TST_QPROPERTY)

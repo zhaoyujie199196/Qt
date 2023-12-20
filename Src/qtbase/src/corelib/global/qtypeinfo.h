@@ -266,6 +266,18 @@ namespace QTypeTraits
 
     template <typename Container, typename ...T>
     using compare_lt_result_container = std::enable_if_t<std::conjunction_v<QTypeTraits::has_operator_less_than_container<Container, T>...>, bool>;
+
+    template <typename T, typename = void>
+    struct is_dereferenceable : std::false_type
+    {};
+
+    //含有->操作符
+    template <typename T>
+    struct is_dereferenceable<T, std::void_t<decltype(std::declval<T>().operator->())>> : std::true_type
+    {};
+
+    template <typename T>
+    inline constexpr bool is_dereferenceable_v = is_dereferenceable<T>::value;
 }
 
 

@@ -1,10 +1,6 @@
 //
 // Created by Yujie Zhao on 2023/8/31.
 //
-
-#ifndef TST_QPOINTER_CPP_H
-#define TST_QPOINTER_CPP_H
-
 #include <QPointer>
 #include <QObject>
 #include <QTest>
@@ -210,4 +206,3 @@ void tst_QPointer::disconnect() {
 
 QTEST_APPLESS_MAIN(tst_QPointer)
 
-#endif //TST_QPOINTER_CPP_H

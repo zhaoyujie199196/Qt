@@ -19,12 +19,12 @@
 #include <string>
 #include <string_view>
 #include "qmetatypenormalizer_p.h"
-#include "qmetaobject.h"
 
 QT_BEGIN_NAMESPACE
 
 class QByteArrayView;
 class QObject;
+struct QMetaObject;
 
 //zhaoyujie TODO QCborSimpleType的作用是什么
 enum class QCborSimpleType : quint8;

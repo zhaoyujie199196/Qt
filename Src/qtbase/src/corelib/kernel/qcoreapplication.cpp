@@ -17,7 +17,6 @@ bool QCoreApplicationPrivate::notify_helper(QObject *receiver, QEvent *event)
 bool QCoreApplication::sendEvent(QObject *receiver, QEvent *event)
 {
     Q_TRACE(QCoreApplication_sendEvent, receiver, event, event->type());
-    Q_ASSERT(false);
     return false;
 }
 

@@ -13,6 +13,7 @@
  * QObject中的各种锁和线程安全机制
  * QueueConnection与BlockQueueConnection的机制
  * QProperty用法
+ * 在触发函数中删除了当前的Connection会出现什么情况？
  * */
 
 int ReceiverObject::sequence = 0;
@@ -23,10 +24,12 @@ public:
     void registerInvokeMethods() override {
         REGISTER_OBJECT_INVOKE_METHOD(test)
         REGISTER_OBJECT_INVOKE_METHOD(disconnect)
+        REGISTER_OBJECT_INVOKE_METHOD(connectSlotsByName)
     }
 
     void test();
     void disconnect();
+    void connectSlotsByName();
 };
 
 void tst_QObject::test() {
@@ -126,7 +129,52 @@ void tst_QObject::disconnect() {
     QVERIFY(!r2.called(2));
     QVERIFY(!r1.called(2));
     QVERIFY(!r2.called(2));
+}
 
+void tst_QObject::connectSlotsByName()
+{
+//    AutoConnectReceiver receiver;
+//    receiver.setObjectName("Receiver");
+//    AutoConnectSender sender(&receiver);
+//    sender.setObjectName("Sender");
+//
+//    QTest::ignoreMessage(QtWarningMsg, "QMetaObject::connectSlotsByName: No matching signal for on_child_signal()");
+//    QTest::ignoreMessage(QtWarningMsg, "QMetaObject::connectSlotsByName: Connecting slot on_Sender_signalManyParams() with the first of the following compatible signals: QList(\"signalManyParams(int,int,int,QString,bool)\", \"signalManyParams(int,int,int,QString,bool,bool)\")");
+//    QMetaObject::connectSlotsByName(&receiver);
+//
+//    receiver.called_slots.clear();
+//    sender.emitSignalNoParams();
+//    QCOMPARE(receiver.called_slots, QList<int>() << 1);
+//
+//    receiver.called_slots.clear();
+//    sender.emitSignalWithParams(0);
+//    QCOMPARE(receiver.called_slots, QList<int>() << 2);
+//
+//    receiver.called_slots.clear();
+//    sender.emitSignalWithParams(0, "string");
+//    QCOMPARE(receiver.called_slots, QList<int>() << 3);
+//
+//    receiver.called_slots.clear();
+//    sender.emitSignalManyParams(1, 2, 3, "string", true);
+//    sender.emitSignalManyParams(1, 2, 3, "string", true, false);
+//
+//    QCOMPARE(receiver.called_slots, QList<int>() << 4 << 5 << 6);
+//
+//    receiver.called_slots.clear();
+//    sender.emitSignalManyParams2(1, 2, 3, "string", true);
+//    QCOMPARE(receiver.called_slots, QList<int>() << 7);
+//
+//    receiver.called_slots.clear();
+//    sender.emitSignalLoopBack();
+//    QCOMPARE(receiver.called_slots, QList<int>() << 8);
+//
+//    receiver.called_slots.clear();
+//    receiver.emitSignalNoParams();
+//    QCOMPARE(receiver.called_slots, QList<int>() << 9);
+//
+//    receiver.called_slots.clear();
+//    receiver.emit_signal_with_underscore();
+//    QCOMPARE(receiver.called_slots, QList<int>() << 10);
 }
 
 QTEST_APPLESS_MAIN(tst_QObject)

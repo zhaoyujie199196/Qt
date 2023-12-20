@@ -243,6 +243,8 @@ namespace QTest {
 
 #define QCOMPARE(actual, expected) \
     QTest::qCompare(actual, expected, #actual, #expected, __FILE__, __LINE__)
+
+#define QSKIP(statement, ...)
 }
 
 

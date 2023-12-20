@@ -6,6 +6,7 @@
 #define QMETAOBJECT_H
 
 #include "qobjectdefs.h"
+#include <QtCore/qvariant.h>
 
 QT_BEGIN_NAMESPACE
 
@@ -47,6 +48,12 @@ public:
     QMetaProperty(const QMetaObject *mobj, int index);
     //获取moc文件中定义的元信息中表示当前property的一段
     static Data getMetaPropertyData(const QMetaObject *mobj, int index);
+
+    int userType() const { return typeId(); }
+    int typeId() const { return metaType().id(); }
+    QMetaType metaType() const;
+    int propertyIndex() const;
+    int relativePropertyIndex() const;
 
     bool isReadable() const;
     bool isWriteable() const;
@@ -96,6 +103,12 @@ public:
         Constructor  //构造函数
     };
 
+    enum attributes {
+        Compatibility = 0x1,
+        Cloned = 0x2,
+        Scriptable = 0x4,
+    };
+
     constexpr inline QMetaMethod() : mobj(nullptr), data({nullptr}) {}
 
     QByteArray methodSignature() const;
@@ -106,6 +119,7 @@ public:
     int methodIndex() const;
 
     inline const QMetaObject *enclosingMetaObject() const { return mobj; }
+    int attributes() const;
 
 private:
     friend bool operator==(const QMetaMethod &m1, const QMetaMethod &m2) noexcept

@@ -20,6 +20,8 @@
 
 QT_BEGIN_NAMESPACE
 
+static int DIRECT_CONNECTION_ONLY = 0;
+
 static QBasicMutex _q_ObjectMutexPool[131];
 
 Q_LOGGING_CATEGORY(lcConnect, "qt.core.qobject.connect")
@@ -113,6 +115,43 @@ static void err_method_notfound(const QObject *object, const char *method, const
     }
 }
 
+void qt_qFindChildren_helper(const QObject *parent, const QString &name, const QMetaObject &mo, QList<void *> *list, Qt::FindChildOptions options)
+{
+    Q_ASSERT(parent);
+    Q_ASSERT(list);
+    const QObjectList &children = parent->children();
+    QObject *obj;
+    for (int i = 0; i < children.size(); ++i) {
+        obj = children.at(i);
+        if (mo.cast(obj)) {
+            if (name.isNull() || obj->objectName() == name) {
+                list->append(obj);
+            }
+        }
+        if (options & Qt::FindChildrenRecursively) {
+            qt_qFindChildren_helper(obj, name, mo, list, options);
+        }
+    }
+}
+
+static bool check_parent_thread(QObject *parent, QThreadData *parentThreadData, QThreadData *currentThreadData)
+{
+    if (parent && parentThreadData != currentThreadData) {
+        QThread *parentThread = parentThreadData->thread.loadAcquire();
+        QThread *currentThread = currentThreadData->thread.loadAcquire();
+        qWarning("QObject: Cannot create children for a parent that is in a different thread.\n"
+                 "(Parent is %s(%p), parent's thread is %s(%p), current thread is %s(%p)",
+                 parent->metaObject()->className(),
+                 parent,
+                 parentThread ? parentThread->className().toStdString().c_str() : "QThread",
+                 parentThread,
+                 currentThread ? currentThread->className().toStdString().c_str() : "QThread",
+                 currentThread);
+        return false;
+    }
+    return true;
+}
+
 struct SlotObjectGuard {
     SlotObjectGuard() = default;
     Q_DISABLE_COPY_MOVE(SlotObjectGuard)
@@ -185,6 +224,9 @@ QObjectPrivate::Connection *QMetaObjectPrivate::connect(const QObject *sender, i
     c->connectionType = type;
     c->isSlotObject = false;
     c->argumentTypes.storeRelaxed(types);
+    if (types) {
+        Q_ASSERT(false);
+    }
     c->callFunction = callFunction;
     c->isSingleShot = isSingleShot;
 
@@ -235,7 +277,7 @@ bool QMetaObjectPrivate::disconnect(const QObject *sender, int signal_index, con
 
         QMetaMethod smethod = QMetaObjectPrivate::signal(smeta, signal_index);
         if (smethod.isValid()) {
-            s->disconnectNotify(smethod);
+            s->disconnectNotify(smethod); //发送signal断开的通知
         }
     }
     return success;
@@ -316,7 +358,6 @@ QObjectPrivate::QObjectPrivate(int version)
 
 QObjectPrivate::~QObjectPrivate()
 {
-    Q_ASSERT(false);
     delete extraData;
 }
 
@@ -414,7 +455,7 @@ void QObjectPrivate::ConnectionData::removeConnection(Connection *c)
 {
     Q_ASSERT(c->receiver.loadRelaxed());
     ConnectionList &connections = signalVector.loadRelaxed()->at(c->signal_index);
-    c->receiver.storeRelaxed(nullptr);
+    c->receiver.storeRelaxed(nullptr);   //将receiver设置为空
     QThreadData *td = c->receiverThreadData.loadRelaxed();
     if (td) {  //connection要被删除了，里面的智能指针之类的deref下
         td->deref();
@@ -444,7 +485,7 @@ void QObjectPrivate::ConnectionData::removeConnection(Connection *c)
         c->next->prev = c->prev;
     }
     c->prev = nullptr;
-
+    //如果是first或者last
     if (connections.first.loadRelaxed() == c) {
         connections.first.storeRelaxed(c->nextConnectionList.loadRelaxed());
     }
@@ -454,7 +495,7 @@ void QObjectPrivate::ConnectionData::removeConnection(Connection *c)
     Q_ASSERT(signalVector.loadRelaxed()->at(c->signal_index).first.loadRelaxed() != c);
     Q_ASSERT(signalVector.loadRelaxed()->at(c->signal_index).last.loadRelaxed() != c);
 
-    //从connection链表中删除
+    //不是first和last，从connection链表中删除
     Connection *n = c->nextConnectionList.loadRelaxed();
     if (n) {
         n->prevConnectionList = c->prevConnectionList;
@@ -544,9 +585,23 @@ bool QObjectPrivate::isSignalConnected(uint signalIndex, bool checkDeclarative) 
     return false;
 }
 
+QObjectPrivate::Connection::~Connection() {
+    if (ownArgumentTypes) {
+        const int *v = argumentTypes.loadRelaxed();
+        if (v != &DIRECT_CONNECTION_ONLY) {
+            if (v) {
+                Q_ASSERT(false);
+            }
+            delete[] v;
+        }
+    }
+    if (isSlotObject) {
+        slotObj->destroyIfLastRef();
+    }
+}
+
 void QObjectPrivate::ConnectionData::cleanOrphanedConnectionsImpl(QObject *sender, LockPolicy lockPolicy)
 {
-    Q_ASSERT(false);
     QBasicMutex *senderMutex = signalSlotLock(sender);
     ConnectionOrSignalVector *c = nullptr;
     {
@@ -585,7 +640,8 @@ void QObjectPrivate::ConnectionData::deleteOrphaned(QObjectPrivate::ConnectionOr
             Q_ASSERT(!c->receiver.loadRelaxed());
             Q_ASSERT(!c->prev);
             c->freeSlotObject();
-            c->deref();
+            Q_ASSERT(c->ref_.loadAcquire() == 1);
+            c->deref();   //这里应该会释放内存
         }
         o = next;
     }
@@ -665,12 +721,24 @@ QObject::QObject(QObjectPrivate &dd, QObject *parent)
     threadData->ref();
     d->threadData.storeRelaxed(threadData);
     if (parent) {
-        Q_ASSERT(false);
+        //父与子得在一个线程
+        if (!check_parent_thread(parent, parent ? parent->d_func()->threadData.loadRelaxed() : nullptr, threadData)) {
+            parent = nullptr;
+        }
+        if (d->isWidget) {
+            if (parent) {
+                d->parent = parent;
+                d->parent->d_func()->children.append(this);
+            }
+        }
+        else {
+            setParent(parent);
+        }
     }
-    //zhaoyujie TODO 添加QObject的钩子
-//    if (Q_UNLIKELY(qtHookData[QHooks::AddQObject]))
-//        reinterpret_cast<QHooks::AddQObjectCallback>(qtHookData[QHooks::AddQObject])(this);
-//    Q_TRACE(QObject_ctor, this);
+    //添加QObject的钩子
+    if (Q_UNLIKELY(qtHookData[QHooks::AddQObject]))
+        reinterpret_cast<QHooks::AddQObjectCallback>(qtHookData[QHooks::AddQObject])(this);
+    Q_TRACE(QObject_ctor, this);
 
 }
 
@@ -687,21 +755,22 @@ QObject::~QObject()
     if (sharedRefcount) {
         Q_ASSERT(false);
         if (sharedRefcount->strongref.loadRelaxed() > 0) {
-            //仍然被什么对象持有？会导致也指针？
+            Q_ASSERT(false); //仍然被什么对象持有？会导致野指针？
         }
 
-        sharedRefcount->strongref.storeRelaxed(0);
+        sharedRefcount->strongref.storeRelaxed(0);  //zhaoyujie TODO
         if (!sharedRefcount->weakref.deref()) {
             delete sharedRefcount;
         }
     }
 
-    if (!d->isWidget && d->isSignalConnected(0)) {
+    if (!d->isWidget && d->isSignalConnected(0)) {   //0是destroyed信号
         emit destroyed(this);
     }
 
     //zhaoyujie TODO 这一段又是什么意思？
     if (d->declarativeData && QAbstractDeclarativeData::destroyed) {
+        Q_ASSERT(false);
         QAbstractDeclarativeData::destroyed(d->declarativeData, this);
     }
 
@@ -738,7 +807,6 @@ QObject::~QObject()
         }
 
         //所有以此object作为目标的链接也断开  zhaoyujie TODO
-        Q_ASSERT(false);
         while (QObjectPrivate::Connection *node = cd->senders) {
             Q_ASSERT(node->receiver.loadAcquire());
             QObject *sender = node->sender;
@@ -759,7 +827,7 @@ QObject::~QObject()
                 slotObj = node->slotObj;
                 node->isSlotObject = false;
             }
-
+            //从sender中清理connection
             senderData->removeConnection(node);
             //unlock之前需要先cleanOrphanedConnections
             const bool locksAreTheSame = signalSlotMutex == m;
@@ -783,7 +851,7 @@ QObject::~QObject()
         cd->currentConnectionId.storeRelaxed(0);
     }
 
-    if (cd && !cd->ref.deref()) { //还能共用cd吗？
+    if (cd && !cd->ref.deref()) { //cd在触发的时候，搞了个智能指针，进行了ref操作
         delete cd;
     }
     d->connections.storeRelaxed(nullptr);
@@ -818,11 +886,13 @@ QString QObject::objectName() const
 //        dd->extraData = new QObjectPrivate::ExtraData(dd);
 //    }
 //    return d->extraData ? d->extraData->objectName : QString();
-    return "";
+    Q_ASSERT(false);
+    return QString();
 }
 
 void QObject::setObjectName(const QString &name)
 {
+    Q_ASSERT(false);
 //    Q_D(QObject);
 //    d->ensureExtraData();
 //    d->extraData->objectName.removeBindingUnlessInWrapper();
@@ -830,8 +900,6 @@ void QObject::setObjectName(const QString &name)
 //        d->extraData->objectName.setValueBypassingBindings(name);
 //        d->extraData->objectName.notify();
 //    }
-    int k = 0;
-    k++;
 }
 
 void QObject::deleteLater() {
@@ -959,8 +1027,7 @@ bool QObject::setProperty(const char *name, const QVariant &value)
 
 QThread *QObject::thread() const
 {
-    Q_ASSERT(false);
-    return nullptr;
+    return d_func()->threadData.loadRelaxed()->thread.loadAcquire();
 }
 
 /*
@@ -1240,7 +1307,6 @@ QMetaObject::Connection QObjectPrivate::connectImpl(const QObject *sender, int s
 //method为空，删除receiver所有和sender的signal的连接
 bool QObject::disconnect(const QObject *sender, const char *signal, const QObject *receiver, const char *method)
 {
-    Q_ASSERT(false);
     if (sender == nullptr || (receiver == nullptr && method != nullptr)) {
         return false;
     }
@@ -1327,7 +1393,7 @@ bool QObject::disconnect(const QObject *sender, const char *signal, const QObjec
         Q_ASSERT(false);
     }
     if (res) {
-        if (!signal) { //zhaoyujie TODO 移除最后一个的时候会调用这个方法？
+        if (!signal) {   //如果signal不为空，在QObjectPrivate::disconnect里已经发送过通知了。这里做下signal为空的通知
             const_cast<QObject *>(sender)->disconnectNotify(QMetaMethod());
         }
     }
@@ -1550,6 +1616,13 @@ void QObject::registerInvokeMethod(const std::string &key, const InvokeMethod &f
     m_invokeMethodMap.push_back({key, std::move(func)});
 }
 
+void QObject::setParent(QObject *parent)
+{
+    Q_D(QObject);
+    Q_ASSERT(!d->isWidget);
+    d->setParent_helper(parent);
+}
+
 //通过信号触发
 template <bool callbacks_enabled>
 void doActivate(QObject *sender, int signal_index, void **argv)
@@ -1594,7 +1667,8 @@ void doActivate(QObject *sender, int signal_index, void **argv)
             list = &signalVector->at(signal_index);
         }
         else {
-            Q_ASSERT(false);  list = &signalVector->at(-1);  //为什么是-1？这个-1是什么作用？父类的信号？
+            Q_ASSERT(false);
+            list = &signalVector->at(-1);  //为什么是-1？这个-1是什么作用？父类的信号？
         }
 
         Qt::HANDLE currentThreadId = QThread::currentThreadId();
@@ -1678,17 +1752,15 @@ void doActivate(QObject *sender, int signal_index, void **argv)
                         signal_spy_set->slot_end_callback(receiver, method);
                     }
                 }
-            } while ((c = c->nextConnectionList.loadRelaxed()) != nullptr && c->id <= highestConnectionId);
+            } while ((c = c->nextConnectionList.loadRelaxed()) != nullptr && c->id <= highestConnectionId);    //依次出发connectionList中的链接，新加入的链接不触发
         } while (list != &signalVector->at(-1) && ((list = &signalVector->at(-1)), true));
 
-        if (connections->currentConnectionId.loadRelaxed() == 0) {
-            Q_ASSERT(false);  //zhaoyujie TODO 用这个方法来判断sender有没有被删除？
+        if (connections->currentConnectionId.loadRelaxed() == 0) {  //sender被释放了，会将currentConnectionId设置为0
             senderDeleted = true;
         }
     }
 
     if (!senderDeleted) {
-        Q_ASSERT(false);
         sp->connections.loadRelaxed()->cleanOrphanedConnections(sender);
 
         if (callbacks_enabled && signal_spy_set->signal_end_callback != nullptr) {

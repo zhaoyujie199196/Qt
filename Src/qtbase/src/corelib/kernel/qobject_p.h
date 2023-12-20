@@ -9,6 +9,7 @@
 #include <QtCore/qobject.h>
 #include <QtCore/qstring.h>
 #include <QtCore/private/qobjectdefs_impl.h>
+#include <QtCore/private/qproperty_p.h>
 
 QT_BEGIN_NAMESPACE
 
@@ -78,8 +79,19 @@ public:
 
         QList<QByteArray> propertyNames;  //propertyNames与propertyValues为QObject的动态属性
         QList<QVariant> propertyValues;
-        QString objectName;  //zhaoyujie TODO QObject的名称
         QObjectPrivate *parent = nullptr;  //zhaoyujie TODO 这个parent和QObjectData中的parent是不是重复了？
+
+        inline void setObjectNameForwarder(const QString &name) {
+            parent->q_func()->setObjectName(name);
+        }
+
+        inline void nameChangedForwarder(const QString &name) {
+            emit parent->q_func()->objectNameChanged(name, QObject::QPrivateSignal());
+        }
+
+//        Q_OBJECT_COMPAT_PROPERTY(QObjectPrivate::ExtraData, QString, objectName,
+//                                 &QObjectPrivate::ExtraData::setObjectNameForwarder,
+//                                 &QObjectPrivate::ExtraData::nameChangedForwarder)
     };
 
     struct Connection;
@@ -87,13 +99,13 @@ public:
     struct ConnectionOrSignalVector {
         union {
             //zhaoyujie TODO
-            ConnectionOrSignalVector *nextInOrphanList;
+            ConnectionOrSignalVector *nextInOrphanList;   //用来串联孤儿
             Connection *next;
         };
 
         static SignalVector *asSignalVector(ConnectionOrSignalVector *c) {
-            Q_ASSERT(false);
             if (reinterpret_cast<quintptr>(c) & 1) {
+                Q_ASSERT(false);
                 return reinterpret_cast<SignalVector *>(reinterpret_cast<quintptr>(c) & ~quintptr(1u));
             }
             return nullptr;
@@ -142,8 +154,7 @@ public:
         }
         void deref() {
             if (!ref_.deref()) {
-                Q_ASSERT(false);  //zhaoyujie TODO 这里的两个判断是什么意思？
-                Q_ASSERT(!receiver.loadRelaxed());
+                Q_ASSERT(!receiver.loadRelaxed());  //加入orphan时，receiver应该设置为空？
                 Q_ASSERT(!isSlotObject);
                 delete this;
             }
@@ -151,7 +162,7 @@ public:
 
         void freeSlotObject()
         {
-            if (isSlotObject) {
+            if (isSlotObject) {   //使用函数指针构造了slotObject对象
                 slotObj->destroyIfLastRef();
                 isSlotObject = false;
             }
@@ -161,9 +172,7 @@ public:
             //zhaoyujie TODO 为什么ref_为2？
         }
 
-        ~Connection() {
-            Q_ASSERT(false);
-        }
+        ~Connection();
     };
 
     struct ConnectionList {
@@ -188,8 +197,9 @@ public:
             }
         }
 
-        void receiverDeleted() {  //receiver被删除了
-            Q_ASSERT(false);
+        void receiverDeleted() {
+            //receiver被删除了，将Connection的receiver设置为空
+            //receiverDeleted会形成空receiver的Connection，这些Connection在哪里销毁？
             Sender *s = this;
             while (s) {
                 s->receiver = nullptr;
@@ -233,10 +243,9 @@ public:
         QAtomicPointer<SignalVector> signalVector;  //信号数组，SignalVector中存放了连接到此信号的Connection
         Connection *senders = nullptr;    //以此conenctionData为目标的连接链表
         Sender *currentSender = nullptr;  //zhaoyujie TODO 这两个sender有啥用
-        QAtomicPointer<Connection> orphaned;  //孤儿？
+        QAtomicPointer<Connection> orphaned;  //孤儿，使用原子指针
 
-        ~ConnectionData() {
-            Q_ASSERT(false);
+        ~ConnectionData() {  //从QObject中释放
             Q_ASSERT(ref.loadRelaxed() == 0);
             auto *c = orphaned.fetchAndStoreRelaxed(nullptr);
             if (c) {

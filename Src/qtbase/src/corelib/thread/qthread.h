@@ -7,6 +7,7 @@
 
 #include <QtCore/qglobal.h>
 #include <QtCore/qnamespace.h>
+#include <QtCore/qstring.h>
 
 QT_BEGIN_NAMESPACE
 
@@ -15,6 +16,7 @@ class QThread
 public:
     static Qt::HANDLE currentThreadId() noexcept;
     static QThread *currentThread();
+    inline QString className() { return "thread"; }
 };
 
 QT_END_NAMESPACE

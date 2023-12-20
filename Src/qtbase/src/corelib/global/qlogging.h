@@ -25,7 +25,11 @@ public:
     constexpr QMessageLogger(const char *file, int line, const char *function) {}
     constexpr QMessageLogger(const char *file, int line, const char *function, const char *category) {  }
 
+    void debug(const char *msg, ...) {}
+    void info(const char *msg, ...) {}
     void warning(const char *msg, ...) {}
+    void critical(const char *msg, ...) {}
+    void fatal(const char *msg, ...) {}
 };
 
 #if !defined(QT_MESSAGELOGCONTEXT) && !defined(QT_NO_MESSAGELOGCONTEXT)
@@ -46,7 +50,11 @@ public:
 #define QT_MESSAGELOG_FUNC nullptr
 #endif
 
+#define qDebug QMessageLogger(QT_MESSAGELOG_FILE, QT_MESSAGELOG_LINE, QT_MESSAGELOG_FUNC).debug
+#define qInfo QMessageLogger(QT_MESSAGELOG_FILE, QT_MESSAGELOG_LINE, QT_MESSAGELOG_FUNC).info
 #define qWarning QMessageLogger(QT_MESSAGELOG_FILE, QT_MESSAGELOG_LINE, QT_MESSAGELOG_FUNC).warning
+#define qCritical QMessageLogger(QT_MESSAGELOG_FILE, QT_MESSAGELOG_LINE, QT_MESSAGELOG_FUNC).critical
+#define qFatal QMessageLogger(QT_MESSAGELOG_FILE, QT_MESSAGELOG_LINE, QT_MESSAGELOG_FUNC).fatal
 
 QT_END_NAMESPACE
 

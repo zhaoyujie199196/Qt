@@ -145,6 +145,14 @@
 #    endif
 #  endif
 
+#ifndef Q_UNREACHABLE_RETURN
+#  ifdef Q_COMPILER_COMPLAINS_ABOUT_RETURN_AFTER_UNREACHABLE
+#    define Q_UNREACHABLE_RETURN(...) Q_UNREACHABLE()
+#  else
+#    define Q_UNREACHABLE_RETURN(...) do { Q_UNREACHABLE(); return __VA_ARGS__; } while (0)
+#  endif
+#endif
+
 #  ifdef Q_OS_WIN
 #    define Q_DECL_EXPORT     __declspec(dllexport)
 #    define Q_DECL_IMPORT     __declspec(dllimport)
@@ -506,6 +514,29 @@
     QT_WARNING_DISABLE_DEPRECATED \
     statement \
     QT_WARNING_POP
+#endif
+
+#if __has_cpp_attribute(nodiscard) && (!defined(Q_CC_CLANG) || __cplusplus > 201402L) // P0188R1
+// Can't use [[nodiscard]] with Clang and C++11/14, see https://bugs.llvm.org/show_bug.cgi?id=33518
+#  undef Q_REQUIRED_RESULT
+#  define Q_REQUIRED_RESULT [[nodiscard]]
+#endif
+
+#if __has_cpp_attribute(nodiscard) >= 201907L /* used for both P1771 and P1301... */
+// [[nodiscard]] constructor (P1771)
+#  ifndef Q_NODISCARD_CTOR
+#    define Q_NODISCARD_CTOR [[nodiscard]]
+#  endif
+#endif
+
+#ifndef Q_REQUIRED_RESULT
+#  define Q_REQUIRED_RESULT
+#endif
+#ifndef Q_NODISCARD_CTOR
+#  define Q_NODISCARD_CTOR
+#endif
+#ifndef Q_DECL_DEPRECATED
+#  define Q_DECL_DEPRECATED
 #endif
 
 #endif //QCOMPILERDETECTION_H

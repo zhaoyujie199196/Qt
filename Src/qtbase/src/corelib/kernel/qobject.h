@@ -15,6 +15,7 @@
 #include <QtCore/qproperty.h>
 #include "qtmetamacros.h"
 #include "qobjectdefs_impl.h"
+#include "qbindingstorage.h"
 
 QT_BEGIN_NAMESPACE
 
@@ -33,6 +34,9 @@ class QThread;
 struct QDynamicMetaObjectData;
 
 typedef QList<QObject *> QObjectList;
+
+Q_CORE_EXPORT void qt_qFindChildren_helper(const QObject *parent, const QString &name,
+                                           const QMetaObject &mo, QList<void *> *list, Qt::FindChildOptions options);
 
 class Q_CORE_EXPORT QObjectData
 {
@@ -75,7 +79,6 @@ public:
     Q_INVOKABLE explicit QObject(QObject *parent = nullptr);
     virtual ~QObject();
 
-
     QString objectName() const;
     void setObjectName(const QString &name);
 //    QBindable<QString> QObject::bindableObjectName();
@@ -96,6 +99,7 @@ public:
     //通过name设置属性
     bool setProperty(const char *name, const QVariant &value);
     QVariant property(const char *name) const;
+    QBindingStorage *bindingStorage() const { return &d_ptr->bindingStorage; }
 
     //connection系统
     //使用字符串标记信号槽，字符串对应到moc系统
@@ -255,14 +259,24 @@ public:
         return const_cast<QObject *>(this)->qt_metacast(classname) != nullptr;
     }
 
+    template <typename T>
+    inline QList<T> findChildren(const QString &aName = QString(), Qt::FindChildOption options = Qt::FindChildrenRecursively) const {
+        typedef typename std::remove_cv<typename std::remove_pointer<T>::type>::type ObjType;
+        QList<T> list;
+        qt_qFindChildren_helper(this, aName, ObjType::staticMetaObject, reinterpret_cast<QList<void *> *>(&list), options);
+        return list;
+    }
+
+
+    const InvokeMethodMap &getInvokeMethodMap() const { return m_invokeMethodMap; }
+    inline const QObjectList &children() const { return d_ptr->children; }
+    void setParent(QObject *parent);
 
     //QObject所属的线程
     QThread *thread() const;
 
     //在实现Q_INVOKABLE之前先使用这种硬编码的方式
     virtual void registerInvokeMethods() {}
-
-    const InvokeMethodMap &getInvokeMethodMap() const {return m_invokeMethodMap;}
 
 signals:
     void destroyed(QObject * = nullptr);
@@ -302,6 +316,18 @@ protected:
 
     InvokeMethodMap m_invokeMethodMap;
 };
+
+inline const QBindingStorage *qGetBindingStorage(const QObject *o)
+{
+    return o->bindingStorage();
+}
+
+inline QBindingStorage *qGetBindingStorage(QObject *o)
+{
+    return o->bindingStorage();
+}
+
+Q_CORE_EXPORT QDebug operator<<(QDebug, const QObject *);
 
 QT_END_NAMESPACE
 
