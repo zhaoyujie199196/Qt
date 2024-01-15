@@ -431,7 +431,6 @@ namespace QtPrivate {
 
         inline void destroyIfLastRef() noexcept  {
             if (!m_ref.deref()) {
-                Q_ASSERT(false);
                 m_impl(Destroy, this, nullptr, nullptr, nullptr);
             }
         }

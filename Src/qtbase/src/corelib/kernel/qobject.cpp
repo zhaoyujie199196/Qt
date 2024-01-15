@@ -880,26 +880,32 @@ QObject::~QObject()
 
 QString QObject::objectName() const
 {
-//    Q_D(const QObject);
-//    if (!d->extraData && QtPrivate::isAnyBindingEvaluating()) {
-//        QObjectPrivate *dd = const_cast<QObjectPrivate *>(d);
-//        dd->extraData = new QObjectPrivate::ExtraData(dd);
-//    }
-//    return d->extraData ? d->extraData->objectName : QString();
-    Q_ASSERT(false);
-    return QString();
+    Q_D(const QObject);
+    if (!d->extraData && QtPrivate::isAnyBindingEvaluating()) {
+        QObjectPrivate *dd = const_cast<QObjectPrivate *>(d);
+        dd->extraData = new QObjectPrivate::ExtraData(dd);
+    }
+    return d->extraData ? d->extraData->objectName : QString();
 }
 
 void QObject::setObjectName(const QString &name)
 {
-    Q_ASSERT(false);
-//    Q_D(QObject);
-//    d->ensureExtraData();
-//    d->extraData->objectName.removeBindingUnlessInWrapper();
-//    if (d->extraData->objectName != name) {
-//        d->extraData->objectName.setValueBypassingBindings(name);
-//        d->extraData->objectName.notify();
-//    }
+    Q_D(QObject);
+    d->ensureExtraData();
+    d->extraData->objectName.removeBindingUnlessInWrapper();
+    if (d->extraData->objectName != name) {
+        d->extraData->objectName.setValueBypassingBindings(name);
+        d->extraData->objectName.notify();
+    }
+}
+
+QBindable<QString> QObject::bindableObjectName()
+{
+    Q_D(QObject);
+    if (!d->extraData) {
+        d->extraData = new QObjectPrivate::ExtraData(d);
+    }
+    return QBindable<QString>(&d->extraData->objectName);
 }
 
 void QObject::deleteLater() {

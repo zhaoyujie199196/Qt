@@ -68,7 +68,7 @@ class QObject {
     Q_OBJECT
     //声明private指针
     Q_DECLARE_PRIVATE(QObject)
-    Q_PROPERTY(QString objectName READ objectName WRITE setObjectName)
+    Q_PROPERTY(QString objectName READ objectName WRITE setObjectName NOTIFY objectNameChanged BINDABLE bindableObjectName)
 public:
     friend struct QMetaObject;
     friend struct QMetaObjectPrivate;
@@ -81,7 +81,7 @@ public:
 
     QString objectName() const;
     void setObjectName(const QString &name);
-//    QBindable<QString> QObject::bindableObjectName();
+    QBindable<QString> bindableObjectName();
 
     virtual bool event(QEvent *event);
     virtual bool eventFilter(QObject *watched, QEvent *event);

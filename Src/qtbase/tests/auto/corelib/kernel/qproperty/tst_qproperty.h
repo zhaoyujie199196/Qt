@@ -50,6 +50,7 @@ public:
         REGISTER_OBJECT_INVOKE_METHOD(quntypedBindableApi)
         REGISTER_OBJECT_INVOKE_METHOD(readonlyConstQBindable)
         REGISTER_OBJECT_INVOKE_METHOD(qobjectBindableManualNotify)
+        REGISTER_OBJECT_INVOKE_METHOD(qobjectBindableSignalTakingNewValue)
         REGISTER_OBJECT_INVOKE_METHOD(testNewStuff)
         REGISTER_OBJECT_INVOKE_METHOD(qobjectObservers)
         REGISTER_OBJECT_INVOKE_METHOD(compatBindings)
@@ -133,6 +134,19 @@ public:
     void qpropertyAlias();
 };
 
+class ChangeDuringDtorTester : public QObject
+{
+Q_OBJECT
+    Q_PROPERTY(int prop READ prop WRITE setProp BINDABLE bindableProp)
+
+public:
+    void setProp(int i) { m_prop = i;}
+    int prop() const { return m_prop; }
+    QBindable<int> bindableProp() { return &m_prop; }
+private:
+    Q_OBJECT_COMPAT_PROPERTY(ChangeDuringDtorTester, int, m_prop, &ChangeDuringDtorTester::setProp)
+};
+
 class BindingLoopTester : public QObject
 {
 Q_OBJECT
@@ -209,7 +223,9 @@ struct ClassWithNotifiedProperty : public QObject
 {
     QList<int> recordedValues;
 
-    void callback() { recordedValues << property.value(); }
+    void callback() {
+        recordedValues << property.value();
+    }
     int getProp() { return 0; }
 
     Q_OBJECT_BINDABLE_PROPERTY(ClassWithNotifiedProperty, int, property, &ClassWithNotifiedProperty::callback);
@@ -422,6 +438,53 @@ public:
     Q_OBJECT_COMPAT_PROPERTY_WITH_ARGS(PropertyWithInitializationTester, CustomType, prop3Data,
                                        &PropertyWithInitializationTester::setProp3,
                                        CustomType(10, 20))
+};
+
+
+class CompatPropertyTester : public QObject
+{
+Q_OBJECT
+    Q_PROPERTY(int prop1 READ prop1 WRITE setProp1 BINDABLE bindableProp1)
+    Q_PROPERTY(int prop2 READ prop2 WRITE setProp2 NOTIFY prop2Changed BINDABLE bindableProp2)
+    Q_PROPERTY(int prop3 READ prop3 WRITE setProp3 NOTIFY prop3Changed BINDABLE bindableProp3)
+public:
+    CompatPropertyTester(QObject *parent = nullptr) : QObject(parent) { }
+
+    int prop1() {return prop1Data.value();}
+    void setProp1(int i) { if (i == prop1Data) return; prop1Data.setValue(i); prop1Data.notify(); }
+    QBindable<int> bindableProp1() {return QBindable<int>(&prop1Data);}
+
+    int prop2() { return prop2Data.value(); }
+    void setProp2(int i)
+    {
+        if (i == prop2Data)
+            return;
+        prop2Data.setValue(i);
+        prop2Data.notify();
+    }
+    QBindable<int> bindableProp2() { return QBindable<int>(&prop2Data); }
+
+    int prop3() { return prop3Data.value(); }
+    void setProp3(int i)
+    {
+        if (i == prop3Data)
+            return;
+        prop3Data.setValue(i);
+        prop3Data.notify();
+    }
+    QBindable<int> bindableProp3() { return QBindable<int>(&prop3Data); }
+
+signals:
+    void prop2Changed(int value);
+    void prop3Changed();
+
+private:
+    Q_OBJECT_COMPAT_PROPERTY(CompatPropertyTester, int, prop1Data, &CompatPropertyTester::setProp1)
+    Q_OBJECT_COMPAT_PROPERTY(CompatPropertyTester, int, prop2Data, &CompatPropertyTester::setProp2,
+                             &CompatPropertyTester::prop2Changed)
+    Q_OBJECT_COMPAT_PROPERTY_WITH_ARGS(CompatPropertyTester, int, prop3Data,
+                                       &CompatPropertyTester::setProp3,
+                                       &CompatPropertyTester::prop3Changed, 1)
 };
 
 

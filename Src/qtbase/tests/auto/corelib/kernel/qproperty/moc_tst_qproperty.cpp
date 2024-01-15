@@ -22,6 +22,122 @@
 QT_BEGIN_MOC_NAMESPACE
 QT_WARNING_PUSH
 QT_WARNING_DISABLE_DEPRECATED
+struct qt_meta_stringdata_ChangeDuringDtorTester_t {
+    const uint offsetsAndSize[4];
+    char stringdata0[28];
+};
+#define QT_MOC_LITERAL(ofs, len) \
+    uint(offsetof(qt_meta_stringdata_ChangeDuringDtorTester_t, stringdata0) + ofs), len 
+static const qt_meta_stringdata_ChangeDuringDtorTester_t qt_meta_stringdata_ChangeDuringDtorTester = {
+    {
+QT_MOC_LITERAL(0, 22), // "ChangeDuringDtorTester"
+QT_MOC_LITERAL(23, 4) // "prop"
+
+    },
+    "ChangeDuringDtorTester\0prop"
+};
+#undef QT_MOC_LITERAL
+
+static const uint qt_meta_data_ChangeDuringDtorTester[] = {
+
+ // content:
+      10,       // revision
+       0,       // classname
+       0,    0, // classinfo
+       0,    0, // methods
+       1,   14, // properties
+       0,    0, // enums/sets
+       0,    0, // constructors
+       0,       // flags
+       0,       // signalCount
+
+ // properties: name, type, flags
+       1, QMetaType::Int, 0x02015103, uint(-1), 0,
+
+       0        // eod
+};
+
+void ChangeDuringDtorTester::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _id, void **_a)
+{
+
+#ifndef QT_NO_PROPERTIES
+    if (_c == QMetaObject::ReadProperty) {
+        auto *_t = static_cast<ChangeDuringDtorTester *>(_o);
+        (void)_t;
+        void *_v = _a[0];
+        switch (_id) {
+        case 0: *reinterpret_cast< int*>(_v) = _t->prop(); break;
+        default: break;
+        }
+    } else if (_c == QMetaObject::WriteProperty) {
+        auto *_t = static_cast<ChangeDuringDtorTester *>(_o);
+        (void)_t;
+        void *_v = _a[0];
+        switch (_id) {
+        case 0: _t->setProp(*reinterpret_cast< int*>(_v)); break;
+        default: break;
+        }
+    } else if (_c == QMetaObject::ResetProperty) {
+    } else if (_c == QMetaObject::BindableProperty) {
+        auto *_t = static_cast<ChangeDuringDtorTester *>(_o);
+        (void)_t;
+        switch (_id) {
+        case 0: *static_cast<QUntypedBindable *>(_a[0]) = _t->bindableProp(); break;
+        default: break;
+        }
+    }
+#endif // QT_NO_PROPERTIES
+    (void)_o;
+    (void)_id;
+    (void)_c;
+    (void)_a;
+}
+
+const QMetaObject ChangeDuringDtorTester::staticMetaObject = { {
+    QMetaObject::SuperData::link<QObject::staticMetaObject>(),
+    qt_meta_stringdata_ChangeDuringDtorTester.offsetsAndSize,
+    qt_meta_data_ChangeDuringDtorTester,
+    qt_static_metacall,
+    nullptr,
+qt_incomplete_metaTypeArray<qt_meta_stringdata_ChangeDuringDtorTester_t
+, QtPrivate::TypeAndForceComplete<int, std::true_type>, QtPrivate::TypeAndForceComplete<ChangeDuringDtorTester, std::true_type>
+
+
+
+>,
+    nullptr
+} };
+
+
+const QMetaObject *ChangeDuringDtorTester::metaObject() const
+{
+    return QObject::d_ptr->metaObject ? QObject::d_ptr->dynamicMetaObject() : &staticMetaObject;
+}
+
+void *ChangeDuringDtorTester::qt_metacast(const char *_clname)
+{
+    if (!_clname) return nullptr;
+    if (!strcmp(_clname, qt_meta_stringdata_ChangeDuringDtorTester.stringdata0))
+        return static_cast<void*>(this);
+    return QObject::qt_metacast(_clname);
+}
+
+int ChangeDuringDtorTester::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
+{
+    _id = QObject::qt_metacall(_c, _id, _a);
+    if (_id < 0)
+        return _id;
+    
+#ifndef QT_NO_PROPERTIES
+    if (_c == QMetaObject::ReadProperty || _c == QMetaObject::WriteProperty
+            || _c == QMetaObject::ResetProperty || _c == QMetaObject::BindableProperty
+            || _c == QMetaObject::RegisterPropertyMetaType) {
+        qt_static_metacall(this, _c, _id, _a);
+        _id -= 1;
+    }
+#endif // QT_NO_PROPERTIES
+    return _id;
+}
 struct qt_meta_stringdata_BindingLoopTester_t {
     const uint offsetsAndSize[6];
     char stringdata0[39];
@@ -1158,6 +1274,186 @@ int PropertyWithInitializationTester::qt_metacall(QMetaObject::Call _c, int _id,
 void PropertyWithInitializationTester::prop1Changed()
 {
     QMetaObject::activate(this, &staticMetaObject, 0, nullptr);
+}
+struct qt_meta_stringdata_CompatPropertyTester_t {
+    const uint offsetsAndSize[16];
+    char stringdata0[72];
+};
+#define QT_MOC_LITERAL(ofs, len) \
+    uint(offsetof(qt_meta_stringdata_CompatPropertyTester_t, stringdata0) + ofs), len 
+static const qt_meta_stringdata_CompatPropertyTester_t qt_meta_stringdata_CompatPropertyTester = {
+    {
+QT_MOC_LITERAL(0, 20), // "CompatPropertyTester"
+QT_MOC_LITERAL(21, 12), // "prop2Changed"
+QT_MOC_LITERAL(34, 0), // ""
+QT_MOC_LITERAL(35, 5), // "value"
+QT_MOC_LITERAL(41, 12), // "prop3Changed"
+QT_MOC_LITERAL(54, 5), // "prop1"
+QT_MOC_LITERAL(60, 5), // "prop2"
+QT_MOC_LITERAL(66, 5) // "prop3"
+
+    },
+    "CompatPropertyTester\0prop2Changed\0\0"
+    "value\0prop3Changed\0prop1\0prop2\0prop3"
+};
+#undef QT_MOC_LITERAL
+
+static const uint qt_meta_data_CompatPropertyTester[] = {
+
+ // content:
+      10,       // revision
+       0,       // classname
+       0,    0, // classinfo
+       2,   14, // methods
+       3,   30, // properties
+       0,    0, // enums/sets
+       0,    0, // constructors
+       0,       // flags
+       2,       // signalCount
+
+ // signals: name, argc, parameters, tag, flags, initial metatype offsets
+       1,    1,   26,    2, 0x06,    4 /* Public */,
+       4,    0,   29,    2, 0x06,    6 /* Public */,
+
+ // signals: parameters
+    QMetaType::Void, QMetaType::Int,    3,
+    QMetaType::Void,
+
+ // properties: name, type, flags
+       5, QMetaType::Int, 0x02015103, uint(-1), 0,
+       6, QMetaType::Int, 0x02015103, uint(0), 0,
+       7, QMetaType::Int, 0x02015103, uint(1), 0,
+
+       0        // eod
+};
+
+void CompatPropertyTester::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _id, void **_a)
+{
+    if (_c == QMetaObject::InvokeMetaMethod) {
+        auto *_t = static_cast<CompatPropertyTester *>(_o);
+        (void)_t;
+        switch (_id) {
+        case 0: _t->prop2Changed((*reinterpret_cast< std::add_pointer_t<int>>(_a[1]))); break;
+        case 1: _t->prop3Changed(); break;
+        default: ;
+        }
+    } else if (_c == QMetaObject::IndexOfMethod) {
+        int *result = reinterpret_cast<int *>(_a[0]);
+        {
+            using _t = void (CompatPropertyTester::*)(int );
+            if (*reinterpret_cast<_t *>(_a[1]) == static_cast<_t>(&CompatPropertyTester::prop2Changed)) {
+                *result = 0;
+                return;
+            }
+        }
+        {
+            using _t = void (CompatPropertyTester::*)();
+            if (*reinterpret_cast<_t *>(_a[1]) == static_cast<_t>(&CompatPropertyTester::prop3Changed)) {
+                *result = 1;
+                return;
+            }
+        }
+    }
+#ifndef QT_NO_PROPERTIES
+    else if (_c == QMetaObject::ReadProperty) {
+        auto *_t = static_cast<CompatPropertyTester *>(_o);
+        (void)_t;
+        void *_v = _a[0];
+        switch (_id) {
+        case 0: *reinterpret_cast< int*>(_v) = _t->prop1(); break;
+        case 1: *reinterpret_cast< int*>(_v) = _t->prop2(); break;
+        case 2: *reinterpret_cast< int*>(_v) = _t->prop3(); break;
+        default: break;
+        }
+    } else if (_c == QMetaObject::WriteProperty) {
+        auto *_t = static_cast<CompatPropertyTester *>(_o);
+        (void)_t;
+        void *_v = _a[0];
+        switch (_id) {
+        case 0: _t->setProp1(*reinterpret_cast< int*>(_v)); break;
+        case 1: _t->setProp2(*reinterpret_cast< int*>(_v)); break;
+        case 2: _t->setProp3(*reinterpret_cast< int*>(_v)); break;
+        default: break;
+        }
+    } else if (_c == QMetaObject::ResetProperty) {
+    } else if (_c == QMetaObject::BindableProperty) {
+        auto *_t = static_cast<CompatPropertyTester *>(_o);
+        (void)_t;
+        switch (_id) {
+        case 0: *static_cast<QUntypedBindable *>(_a[0]) = _t->bindableProp1(); break;
+        case 1: *static_cast<QUntypedBindable *>(_a[0]) = _t->bindableProp2(); break;
+        case 2: *static_cast<QUntypedBindable *>(_a[0]) = _t->bindableProp3(); break;
+        default: break;
+        }
+    }
+#endif // QT_NO_PROPERTIES
+}
+
+const QMetaObject CompatPropertyTester::staticMetaObject = { {
+    QMetaObject::SuperData::link<QObject::staticMetaObject>(),
+    qt_meta_stringdata_CompatPropertyTester.offsetsAndSize,
+    qt_meta_data_CompatPropertyTester,
+    qt_static_metacall,
+    nullptr,
+qt_incomplete_metaTypeArray<qt_meta_stringdata_CompatPropertyTester_t
+, QtPrivate::TypeAndForceComplete<int, std::true_type>, QtPrivate::TypeAndForceComplete<int, std::true_type>, QtPrivate::TypeAndForceComplete<int, std::true_type>, QtPrivate::TypeAndForceComplete<CompatPropertyTester, std::true_type>, QtPrivate::TypeAndForceComplete<void, std::false_type>, QtPrivate::TypeAndForceComplete<int, std::false_type>, QtPrivate::TypeAndForceComplete<void, std::false_type>
+
+
+
+>,
+    nullptr
+} };
+
+
+const QMetaObject *CompatPropertyTester::metaObject() const
+{
+    return QObject::d_ptr->metaObject ? QObject::d_ptr->dynamicMetaObject() : &staticMetaObject;
+}
+
+void *CompatPropertyTester::qt_metacast(const char *_clname)
+{
+    if (!_clname) return nullptr;
+    if (!strcmp(_clname, qt_meta_stringdata_CompatPropertyTester.stringdata0))
+        return static_cast<void*>(this);
+    return QObject::qt_metacast(_clname);
+}
+
+int CompatPropertyTester::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
+{
+    _id = QObject::qt_metacall(_c, _id, _a);
+    if (_id < 0)
+        return _id;
+    if (_c == QMetaObject::InvokeMetaMethod) {
+        if (_id < 2)
+            qt_static_metacall(this, _c, _id, _a);
+        _id -= 2;
+    } else if (_c == QMetaObject::RegisterMethodArgumentMetaType) {
+        if (_id < 2)
+            *reinterpret_cast<QMetaType *>(_a[0]) = QMetaType();
+        _id -= 2;
+    }
+#ifndef QT_NO_PROPERTIES
+    else if (_c == QMetaObject::ReadProperty || _c == QMetaObject::WriteProperty
+            || _c == QMetaObject::ResetProperty || _c == QMetaObject::BindableProperty
+            || _c == QMetaObject::RegisterPropertyMetaType) {
+        qt_static_metacall(this, _c, _id, _a);
+        _id -= 3;
+    }
+#endif // QT_NO_PROPERTIES
+    return _id;
+}
+
+// SIGNAL 0
+void CompatPropertyTester::prop2Changed(int _t1)
+{
+    void *_a[] = { nullptr, const_cast<void*>(reinterpret_cast<const void*>(std::addressof(_t1))) };
+    QMetaObject::activate(this, &staticMetaObject, 0, _a);
+}
+
+// SIGNAL 1
+void CompatPropertyTester::prop3Changed()
+{
+    QMetaObject::activate(this, &staticMetaObject, 1, nullptr);
 }
 QT_WARNING_POP
 QT_END_MOC_NAMESPACE

@@ -89,9 +89,9 @@ public:
             emit parent->q_func()->objectNameChanged(name, QObject::QPrivateSignal());
         }
 
-//        Q_OBJECT_COMPAT_PROPERTY(QObjectPrivate::ExtraData, QString, objectName,
-//                                 &QObjectPrivate::ExtraData::setObjectNameForwarder,
-//                                 &QObjectPrivate::ExtraData::nameChangedForwarder)
+        Q_OBJECT_COMPAT_PROPERTY(QObjectPrivate::ExtraData, QString, objectName,
+                                 &QObjectPrivate::ExtraData::setObjectNameForwarder,
+                                 &QObjectPrivate::ExtraData::nameChangedForwarder)
     };
 
     struct Connection;
@@ -371,6 +371,26 @@ public:
 inline bool QObjectPrivate::isDeclarativeSignalConnected(uint signalIdx) const
 {
     return declarativeData && QAbstractDeclarativeData::isSignalConnected && QAbstractDeclarativeData::isSignalConnected(declarativeData, q_func(), signalIdx);
+}
+
+inline const QBindingStorage *qGetBindingStorage(const QObjectPrivate *d)
+{
+    return &d->bindingStorage;
+}
+
+inline QBindingStorage *qGetBindingStorage(QObjectPrivate *d)
+{
+    return &d->bindingStorage;
+}
+
+inline const QBindingStorage *qGetBindingStorage(const QObjectPrivate::ExtraData *ed)
+{
+    return &ed->parent->bindingStorage;
+}
+
+inline QBindingStorage *qGetBindingStorage(QObjectPrivate::ExtraData *ed)
+{
+    return &ed->parent->bindingStorage;
 }
 
 QT_END_NAMESPACE

@@ -193,7 +193,7 @@ public:
         return sizeEnsuringAlignment;
     }
 
-    //目前监视的对象的数量
+    //目前观察的对象的数量
     size_t dependencyObserverCount = 0;
 
     bool isUpdating() const { return updating; }
@@ -218,7 +218,6 @@ public:
     void setStaticObserver(QtPrivate::QPropertyObserverCallback callback, QtPrivate::QPropertyBindingWrapper bindingWrapper) {
         Q_ASSERT(!(callback && bindingWrapper));
         if (callback) {
-            Q_ASSERT(false);
             hasStaticObserver = true;
             hasBindingWrapper = false;
             staticObserverCallback = callback;
@@ -495,7 +494,6 @@ namespace QtPrivate {
 
 inline void QPropertyBindingDataPointer::fixupAfterMove(QPropertyBindingData *ptr)
 {
-    Q_ASSERT(false);
     auto &d = ptr->d_ref();
     if (ptr->isNotificationDelayed()) {
         QPropertyProxyBindingData *proxy = ptr->proxyData();
@@ -506,6 +504,7 @@ inline void QPropertyBindingDataPointer::fixupAfterMove(QPropertyBindingData *pt
         return;
     }
     if (auto observer = reinterpret_cast<QPropertyObserver *>(d)) {
+        //这里需要和QPropertyBindingDataPointer::addObserver一起理解
         observer->prev = reinterpret_cast<QPropertyObserver **>(&d);
     }
 }
@@ -735,6 +734,7 @@ public:
 };
 
 namespace QtPrivate {
+    //针对QObject的QBindableInterfaceForProperty方法
     template <typename Class, typename Ty, auto Offset, auto Setter, auto Signal, auto Getter>
     class QBindableInterfaceForProperty<QObjectCompatProperty<Class, Ty, Offset, Setter, Signal, Getter>, std::void_t<Class>>
     {

@@ -234,6 +234,14 @@ int QMetaProperty::relativePropertyIndex() const
     return data.index(mobj);
 }
 
+QUntypedBindable QMetaProperty::bindable(QObject *object) const
+{
+    QUntypedBindable bindable;
+    void *argv[1] { &bindable };
+    mobj->metacall(object, QMetaObject::BindableProperty, data.index(mobj) + mobj->propertyOffset(), argv);
+    return bindable;
+}
+
 QMetaProperty::Data QMetaProperty::getMetaPropertyData(const QMetaObject *mobj, int index)
 {
     //mobj->d.data： meta_object信息
@@ -653,7 +661,7 @@ int QMetaObject::propertyOffset() const
     int offset = 0;
     const QMetaObject *m = d.superdata;
     while (m) {
-        offset + priv(m->d.data)->propertyCount;
+        offset += priv(m->d.data)->propertyCount;
         m = m->d.superdata;
     }
     return offset;

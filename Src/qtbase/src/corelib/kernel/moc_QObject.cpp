@@ -1,5 +1,5 @@
 /****************************************************************************
-** Meta object code from reading C++ file 'QObject.h'
+** Meta object code from reading C++ file 'qobject.h'
 **
 ** Created by: The Qt Meta Object Compiler version 68 (Qt 6.2.4)
 **
@@ -7,11 +7,12 @@
 *****************************************************************************/
 
 #include <memory>
-#include "./QObject.h"
+#include "./qobject.h"
 #include <QtCore/qbytearray.h>
 #include <QtCore/qmetatype.h>
+#include <QtCore/QProperty>
 #if !defined(Q_MOC_OUTPUT_REVISION)
-#error "The header file 'QObject.h' doesn't include <QObject>."
+#error "The header file 'qobject.h' doesn't include <QObject>."
 #elif Q_MOC_OUTPUT_REVISION != 68
 #error "This file was generated using the moc from 6.2.4. It"
 #error "cannot be used with the include files from this version of Qt."
@@ -22,8 +23,8 @@ QT_BEGIN_MOC_NAMESPACE
 QT_WARNING_PUSH
 QT_WARNING_DISABLE_DEPRECATED
 struct qt_meta_stringdata_QObject_t {
-    const uint offsetsAndSize[12];
-    char stringdata0[55];
+    const uint offsetsAndSize[14];
+    char stringdata0[67];
 };
 #define QT_MOC_LITERAL(ofs, len) \
     uint(offsetof(qt_meta_stringdata_QObject_t, stringdata0) + ofs), len 
@@ -34,11 +35,12 @@ QT_MOC_LITERAL(8, 9), // "destroyed"
 QT_MOC_LITERAL(18, 0), // ""
 QT_MOC_LITERAL(19, 17), // "objectNameChanged"
 QT_MOC_LITERAL(37, 10), // "objectName"
-QT_MOC_LITERAL(48, 6) // "parent"
+QT_MOC_LITERAL(48, 11), // "deleteLater"
+QT_MOC_LITERAL(60, 6) // "parent"
 
     },
     "QObject\0destroyed\0\0objectNameChanged\0"
-    "objectName\0parent"
+    "objectName\0deleteLater\0parent"
 };
 #undef QT_MOC_LITERAL
 
@@ -48,33 +50,39 @@ static const uint qt_meta_data_QObject[] = {
       10,       // revision
        0,       // classname
        0,    0, // classinfo
-       3,   14, // methods
-       1,   43, // properties
+       4,   14, // methods
+       1,   50, // properties
        0,    0, // enums/sets
-       2,   48, // constructors
+       2,   55, // constructors
        0,       // flags
        3,       // signalCount
 
  // signals: name, argc, parameters, tag, flags, initial metatype offsets
-       1,    1,   32,    2, 0x06,    2 /* Public */,
-       1,    0,   35,    2, 0x26,    4 /* Public | MethodCloned */,
-       3,    1,   36,    2, 0x06,    5 /* Public */,
+       1,    1,   38,    2, 0x06,    2 /* Public */,
+       1,    0,   41,    2, 0x26,    4 /* Public | MethodCloned */,
+       3,    1,   42,    2, 0x06,    5 /* Public */,
+
+ // slots: name, argc, parameters, tag, flags, initial metatype offsets
+       5,    0,   45,    2, 0x0a,    7 /* Public */,
 
  // signals: parameters
     QMetaType::Void, QMetaType::QObjectStar,    2,
     QMetaType::Void,
     QMetaType::Void, QMetaType::QString,    4,
 
+ // slots: parameters
+    QMetaType::Void,
+
  // constructors: parameters
-    0x80000000 | 2, QMetaType::QObjectStar,    5,
+    0x80000000 | 2, QMetaType::QObjectStar,    6,
     0x80000000 | 2,
 
  // properties: name, type, flags
-       4, QMetaType::QString, 0x00015103, uint(-1), 0,
+       4, QMetaType::QString, 0x02015103, uint(2), 0,
 
  // constructors: name, argc, parameters, tag, flags, initial metatype offsets
-       0,    1,   39,    2, 0x0e,    7 /* Public */,
-       0,    0,   42,    2, 0x2e,    8 /* Public | MethodCloned */,
+       0,    1,   46,    2, 0x0e,    8 /* Public */,
+       0,    0,   49,    2, 0x2e,    9 /* Public | MethodCloned */,
 
        0        // eod
 };
@@ -96,6 +104,7 @@ void QObject::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _id, voi
         case 0: _t->destroyed((*reinterpret_cast< std::add_pointer_t<QObject*>>(_a[1]))); break;
         case 1: _t->destroyed(); break;
         case 2: _t->objectNameChanged((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1])), QPrivateSignal()); break;
+        case 3: _t->deleteLater(); break;
         default: ;
         }
     } else if (_c == QMetaObject::IndexOfMethod) {
@@ -134,6 +143,12 @@ void QObject::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _id, voi
         }
     } else if (_c == QMetaObject::ResetProperty) {
     } else if (_c == QMetaObject::BindableProperty) {
+        auto *_t = static_cast<QObject *>(_o);
+        (void)_t;
+        switch (_id) {
+        case 0: *static_cast<QUntypedBindable *>(_a[0]) = _t->bindableObjectName(); break;
+        default: break;
+        }
     }
 #endif // QT_NO_PROPERTIES
 }
@@ -146,7 +161,7 @@ const QMetaObject QObject::staticMetaObject = { {
     nullptr,
 qt_incomplete_metaTypeArray<qt_meta_stringdata_QObject_t
 , QtPrivate::TypeAndForceComplete<QString, std::true_type>, QtPrivate::TypeAndForceComplete<QObject, std::true_type>, QtPrivate::TypeAndForceComplete<void, std::false_type>, QtPrivate::TypeAndForceComplete<QObject *, std::false_type>, QtPrivate::TypeAndForceComplete<void, std::false_type>, QtPrivate::TypeAndForceComplete<void, std::false_type>, QtPrivate::TypeAndForceComplete<const QString &, std::false_type>
-
+, QtPrivate::TypeAndForceComplete<void, std::false_type>
 
 , QtPrivate::TypeAndForceComplete<QObject *, std::false_type>
 >,
@@ -172,13 +187,13 @@ int QObject::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
     if (_id < 0)
         return _id;
     if (_c == QMetaObject::InvokeMetaMethod) {
-        if (_id < 3)
+        if (_id < 4)
             qt_static_metacall(this, _c, _id, _a);
-        _id -= 3;
+        _id -= 4;
     } else if (_c == QMetaObject::RegisterMethodArgumentMetaType) {
-        if (_id < 3)
+        if (_id < 4)
             *reinterpret_cast<QMetaType *>(_a[0]) = QMetaType();
-        _id -= 3;
+        _id -= 4;
     }
 #ifndef QT_NO_PROPERTIES
     else if (_c == QMetaObject::ReadProperty || _c == QMetaObject::WriteProperty

@@ -36,6 +36,11 @@ QT_BEGIN_NAMESPACE
 
 template <class T> class QProperty;
 
+namespace Qt {
+    void beginPropertyUpdateGroup();
+    void endPropertyUpdateGroup();
+}
+
 //QProperty绑定的源代码的位置，给qml使用的吧
 struct QPropertyBindingSourceLocation
 {
@@ -145,6 +150,7 @@ class QPropertyObserverBase
     friend class QPropertyObserver;
     friend class QPropertyBindingPrivate;
     friend struct QPropertyObserverNodeProtector;
+    friend struct QPropertyDelayedNotifications;
 public:
     enum ObserverTag {
         ObserverNotifiesBinding,  //被观察的属性变化以通知观察者
@@ -161,9 +167,9 @@ private:
     QTagPreservingPointerToPointer<QPropertyObserver, ObserverTag> prev;
 
     union {
-        QPropertyBindingPrivate *binding = nullptr;
-        ChangeHandler changeHandler;
-        QUntypedPropertyData *aliasData;
+        QPropertyBindingPrivate *binding = nullptr;  //QProperty
+        ChangeHandler changeHandler;      //onValueChanged
+        QUntypedPropertyData *aliasData;  //QPropertyAlias
     };
 };
 
@@ -276,10 +282,16 @@ public:
     //数值 / 枚举 / 指针的右值不会走到这个函数，会走到QPropertyData(parameter_type)函数
     //没有走到这个函数不会导致编译失败
     QPropertyData(rvalue_ref t) : val(std::move(t)) {}
-    ~QPropertyData() = default;
+    ~QPropertyData() {
+        bool isString = std::is_same_v<T, QString>;
+        if (isString) {
+            int k = 0;
+            k++;
+        }
+    }
 
     parameter_type valueBypassingBindings() const { return val; }
-    void setValueByPassingBindings(parameter_type v) { val = v; }
+    void setValueBypassingBindings(parameter_type v) { val = v; }
     void setValueBypassingBindings(rvalue_ref v) { val = std::move(v); }
 };
 
@@ -323,8 +335,7 @@ public:
             return value();
         }
         else if constexpr (std::is_pointer_v<T>) {
-            value();  //zhaoyujie TODO 为什么不直接return value();
-            return this->val;
+            return value();
         }
         else {
             return;
@@ -427,6 +438,13 @@ public:
         static_assert(std::is_invocable_v<Functor>, "Functor callback must be callable without any parameters");
         f();
         return onValueChanged(f);
+    }
+
+    //QPropertyNotifier被销毁就断开
+    template <typename Functor>
+    QPropertyNotifier addNotifier(Functor f)
+    {
+        return QPropertyNotifier(*this, f);
     }
 
 private:
@@ -762,7 +780,7 @@ public:
             : QUntypedBindable(obj, property, &QtPrivate::PropertyAdaptorSlotObjectHelpers::iface<T>)
     {}
 
-    QPropertyBinding<T> makeBinding(const QPropertyBindingSourceLocation &location = QT_PROPERTY_DEFAULT_BINDING_LOCATION)
+    QPropertyBinding<T> makeBinding(const QPropertyBindingSourceLocation &location = QT_PROPERTY_DEFAULT_BINDING_LOCATION) const
     {
         return static_cast<QPropertyBinding<T> &&>(QUntypedBindable::makeBinding(location));
     }
@@ -786,7 +804,6 @@ public:
         if (iface && iface->setBinding) {
             return static_cast<QPropertyBinding<T> &&>(iface->setBinding(data, binding));
         }
-        Q_ASSERT(false);
         return QPropertyBinding<T>();
     }
 
@@ -959,7 +976,7 @@ class QObjectBindableProperty : public QPropertyData<T>
     using ThisType = QObjectBindableProperty<Class, T, Offset, Signal>;
     //含有信号
     static bool constexpr HasSignal = !std::is_same_v<decltype(Signal), std::nullptr_t>;
-    //zhaoyujie TODO
+    //信号是否携带参数。这里的Single可以代参数也可以空参数
     using SignalTakesValue = std::is_invocable<decltype(Signal), Class, T>;
 
     Class *owner()

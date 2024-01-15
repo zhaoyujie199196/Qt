@@ -164,7 +164,7 @@ namespace QtPrivate {
     struct HasQ_OBJECT_Macro {
         template <typename T>
         static char test(int (T::*)(QMetaObject::Call, int, void **));
-        static int test(int (QObject::*)(QMetaObject::Call, int, void **));
+        static int test(int (Object::*)(QMetaObject::Call, int, void **));
         enum {
             Value = sizeof(test(&Object::qt_metacall)) == sizeof(int),
         };

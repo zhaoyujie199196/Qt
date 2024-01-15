@@ -63,6 +63,10 @@ public:
     //写obj中的属性
     bool write(QObject *obj, const QVariant &value) const;
 
+    QUntypedBindable bindable(QObject *object) const;
+
+    inline bool isValid() const { return isReadable(); }
+
 public:
     const QMetaObject *mobj;
     Data data;

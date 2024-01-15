@@ -168,7 +168,7 @@ namespace QtPrivate {
                                     return false;
                                 }
                             }
-                            propertyPtr->setValueByPassingBindings(std::move(newValue));  //直接设置值，通知在外面做
+                            propertyPtr->setValueBypassingBindings(std::move(newValue));  //直接设置值，通知在外面做
                             return true;
                         } else {
                             Q_UNREACHABLE_IMPL();
@@ -222,14 +222,15 @@ class QPropertyBindingData
 
     template<typename Class, typename T, auto Offset, auto Setter, auto Signal, auto Getter>
     friend class QT_PREPEND_NAMESPACE(QObjectCompatProperty);
+    friend struct QPropertyDelayedNotifications;
 private:
     /*
-     * 这个ptr里既可以存放QPropertyBindingPrivate又可以存放observer？
+     * 这个ptr里既可以存放QPropertyBindingPrivate又可以存放observer
      * QProperty如果需要监听其他的QPropertyData，则d_ptr为QPropertyBindingPrivate
      * 但是有些QProperty不需要监听其他的的QProperty，反而被其他的QProperty监听，此时则不需要QPropertyBindingPrivate,直接用d_ptr存放observer
      * 感觉不如用个union，就为了节省一个Flag的内存，写得太Trick了
      * */
-    mutable quintptr d_ptr = 0;  //zhaoyujie TODO 这个ptr里放的是什么东西。。。这代码看得一脸懵逼
+    mutable quintptr d_ptr = 0;
     Q_DISABLE_COPY(QPropertyBindingData)
 public:
     QPropertyBindingData() = default;
@@ -285,7 +286,6 @@ private:
     {
         quintptr &d = d_ptr;  //引用可以传递
         if (isNotificationDelayed()) {
-            Q_ASSERT(false);
             return proxyData()->d_ptr;
         }
         return d;
