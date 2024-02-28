@@ -225,5 +225,116 @@ signals:
     void signal_with_underscore();
 };
 
+class DefaultArguments : public QObject
+{
+    Q_OBJECT
+public slots:
+    void theSlot(const QString &s) { result = s; }
+
+signals:
+    void theOriginalSignal();
+    void theSecondSignal(const QString &s = QString("secondDefault"));
+    void theThirdSignal(int a = 0, float b = 0.0f, const QString &s = QString("secondDefault"));
+    void theFourthSignal(QString &s);
+    void theFifthSignal(QString *a, QString &b, const QString &c);
+
+public:
+    void emitTheOriginalSignal() { emit theOriginalSignal(); }
+    void emitTheSecondSignal() { emit theSecondSignal(); }
+    QString result;
+};
+
+enum Enum { };
+
+struct Struct { };
+class Class { };
+template <typename T> class Template { };
+
+class NormalizeObject : public QObject
+{
+Q_OBJECT
+
+public:
+
+signals:
+    void uintPointerSignal(uint *);
+    void ulongPointerSignal(ulong *);
+    void constUintPointerSignal(const uint *);
+    void constUlongPointerSignal(const ulong *);
+
+    void structSignal(Struct s);
+    void classSignal(Class c);
+    void enumSignal(Enum e);
+
+    void structPointerSignal(Struct *s);
+    void classPointerSignal(Class *c);
+    void enumPointerSignal(Enum *e);
+
+    void constStructPointerSignal(const Struct *s);
+    void constClassPointerSignal(const Class *c);
+    void constEnumPointerSignal(const Enum *e);
+
+    void constStructPointerConstPointerSignal(const Struct * const *s);
+    void constClassPointerConstPointerSignal(const Class * const *c);
+    void constEnumPointerConstPointerSignal(const Enum * const *e);
+
+    void unsignedintSignal(unsigned int);
+    void unsignedSignal(unsigned);
+    void unsignedlongSignal(unsigned long);
+    void unsignedlonglongSignal(quint64);
+    void unsignedlongintSignal(unsigned long int);
+    void unsignedshortSignal(unsigned short);
+    void unsignedcharSignal(unsigned char);
+
+    void typeRefSignal(Template<Class &> &ref);
+    void constTypeRefSignal(const Template<Class const &> &ref);
+    void typeConstRefSignal(Template<Class const &> const &ref);
+
+    void typePointerConstRefSignal(Class * const &);
+
+    void constTemplateSignal1( Template<int > );
+    void constTemplateSignal2( Template< const int >);
+
+public slots:
+    void uintPointerSlot(uint *) { }
+    void ulongPointerSlot(ulong *) { }
+    void constUintPointerSlot(const uint *) { }
+    void constUlongPointerSlot(const ulong *) { }
+
+    void structSlot(Struct s) { Q_UNUSED(s); }
+    void classSlot(Class c) { Q_UNUSED(c); }
+    void enumSlot(Enum e) { Q_UNUSED(e); }
+
+    void structPointerSlot(Struct *s) { Q_UNUSED(s); }
+    void classPointerSlot(Class *c) { Q_UNUSED(c); }
+    void enumPointerSlot(Enum *e) { Q_UNUSED(e); }
+
+    void constStructPointerSlot(const Struct *s) { Q_UNUSED(s); }
+    void constClassPointerSlot(const Class *c) { Q_UNUSED(c); }
+    void constEnumPointerSlot(const Enum *e) { Q_UNUSED(e); }
+
+    void constStructPointerConstPointerSlot(const Struct * const *s) { Q_UNUSED(s); }
+    void constClassPointerConstPointerSlot(const Class * const *c) { Q_UNUSED(c); }
+    void constEnumPointerConstPointerSlot(const Enum * const *e) { Q_UNUSED(e); }
+
+    void uintSlot(uint) {};
+    void unsignedintSlot(unsigned int) {};
+    void unsignedSlot(unsigned) {};
+    void unsignedlongSlot(unsigned long) {};
+    void unsignedlonglongSlot(quint64) {};
+    void unsignedlongintSlot(unsigned long int) {};
+    void unsignedshortSlot(unsigned short) {};
+    void unsignedcharSlot(unsigned char) {};
+
+    void typeRefSlot(Template<Class &> &) {}
+    void constTypeRefSlot(const Template<const Class &> &) {}
+    void typeConstRefSlot(Template<Class const &> const &) {}
+
+    void typePointerConstRefSlot(Class * const &) {}
+
+    void constTemplateSlot1(Template<int > const) {}
+    void constTemplateSlot2(const Template<int > ) {}
+    void constTemplateSlot3(const Template< const int >) {}
+};
 
 #endif //TST_QOBJECTHELPER_H

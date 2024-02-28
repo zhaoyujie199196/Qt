@@ -56,6 +56,8 @@ namespace QtPrivate {
 
     bool isLatin1(QLatin1String s) noexcept;
     bool isLatin1(QStringView s) noexcept;
+
+    QLatin1String trimmed(QLatin1String s) noexcept;
 }
 
 QT_END_NAMESPACE

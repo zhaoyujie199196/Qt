@@ -7,6 +7,8 @@
 
 QT_BEGIN_NAMESPACE
 
+QCoreApplication *QCoreApplication::self = nullptr;
+
 static bool doNotify(QObject *, QEvent *);
 
 bool QCoreApplicationPrivate::notify_helper(QObject *receiver, QEvent *event)
@@ -18,6 +20,11 @@ bool QCoreApplication::sendEvent(QObject *receiver, QEvent *event)
 {
     Q_TRACE(QCoreApplication_sendEvent, receiver, event, event->type());
     return false;
+}
+
+void QCoreApplication::postEvent(QObject *receiver, QEvent *event, int priority)
+{
+    Q_ASSERT(false);
 }
 
 bool QCoreApplication::notifyInternal2(QObject *receiver, QEvent *event)

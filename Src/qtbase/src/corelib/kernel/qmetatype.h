@@ -37,26 +37,30 @@ template <typename T>
 inline constexpr int qMetaTypeId();
 
 //基础类型的一些参数，用在其他的宏里面注册
+#define QT_FOR_EACH_STATIC_PRIMITIVE_NON_VOID_TYPE(F)\
+    F(Bool, 1, bool) \
+    F(Int, 2, int) \
+    F(UInt, 3, uint) \
+    F(LongLong, 4, qlonglong) \
+    F(ULongLong, 5, qulonglong) \
+    F(Double, 6, double) \
+    F(Long, 32, long) \
+    F(Short, 33, short) \
+    F(Char, 34, char) \
+    F(Char16, 56, char16_t) \
+    F(Char32, 57, char32_t) \
+    F(ULong, 35, ulong) \
+    F(UShort, 36, ushort) \
+    F(UChar, 37, uchar) \
+    F(Float, 38, float) \
+    F(SChar, 40, signed char) \
+    F(Nullptr, 51, std::nullptr_t) \
+    F(QCborSimpleType, 52, QCborSimpleType) \
+
 #define QT_FOR_EACH_STATIC_PRIMITIVE_TYPE(F) \
+    QT_FOR_EACH_STATIC_PRIMITIVE_NON_VOID_TYPE(F) \
     F(Void, 43, void)                        \
-    F(Bool, 1, bool)                         \
-    F(Int, 2, int)                           \
-    F(UInt, 3, uint)                         \
-    F(LongLong, 4, qlonglong)                \
-    F(ULongLong, 5, qulonglong)              \
-    F(Double, 6, double)                     \
-    F(Long, 32, long)                        \
-    F(Short, 33, short)                      \
-    F(Char, 34, char)                        \
-    F(Char16, 56, char16_t)                  \
-    F(Char32, 57, char32_t)                  \
-    F(ULong, 35, ulong)                      \
-    F(UShort, 36, ushort)                    \
-    F(UChar, 37, uchar)                      \
-    F(Float, 38, float)                      \
-    F(SChar, 40, signed char)                \
-    F(Nullptr, 51, std::nullptr_t)           \
-    F(QCborSimpleType, 52, QCborSimpleType)  \
+
 
 #define QT_FOR_EACH_STATIC_PRIMITIVE_POINTER(F) \
     F(VoidStar, 31, void*)                       \
@@ -151,8 +155,8 @@ namespace QtPrivate
         uint flags;
         mutable QBasicAtomicInt typeId;
 
-//        using MetaObjectFn = const QMetaObject *(*)(const QMetaTypeInterface *);
-//        MetaObjectFn metaObjectFn;
+        using MetaObjectFn = const QMetaObject *(*)(const QMetaTypeInterface *);
+        MetaObjectFn metaObjectFn;
         const char *name;
         using DefaultCtrFn = void (*)(const QMetaTypeInterface *, void *);
         DefaultCtrFn defaultCtr;  //不带参数的默认构造函数
@@ -289,15 +293,28 @@ struct QMetaTypeId2
     static inline constexpr int qt_metatype_id() {return QMetaTypeId<T>::qt_metatype_id();}
 };
 
-//template<>
-//struct QMetaTypeId2<void> {
-//    using NameAsArrayType = std::array<char, sizeof("void")>;
-//    enum {
-//        Defined = 1, IsBuiltIn = true, MetaType = 43
-//    };
-//    static inline constexpr int qt_metatype_id() { return 43; }
-//    static constexpr NameAsArrayType nameAsArray = {"void"};
-//};
+template <typename T>
+struct QMetaTypeId<const T&> : QMetaTypeId2<T>
+{};
+
+template <typename T>
+struct QMetaTypeId2<T &>
+{
+    using NameAsArrayType = void;
+    enum { Defined = false, IsBuiltIn = false };
+    static inline constexpr int qt_metatype_id() { return 0; }
+};
+
+namespace QtPrivate {
+    template <typename T, bool Defined = QMetaTypeId2<T>::Defined>
+    struct QMetaTypeIdHelper {
+        static inline constexpr int qt_metatype_id() { return QMetaTypeId2<T>::qt_metatype_id(); }
+    };
+    template <typename T>
+    struct QMetaTypeIdHelper<T, false> {
+        static inline constexpr int qt_metatype_id() { return -1; }
+    };
+};
 
 class QMetaType {
 public:
@@ -384,6 +401,7 @@ public:
     constexpr qsizetype sizeOf() const { return d_ptr ? d_ptr->size : 0; }
     constexpr qsizetype alignOf() const { return d_ptr ? d_ptr->alignment : 0; }
     constexpr TypeFlags flags() const { return d_ptr ? TypeFlags(d_ptr->flags) : TypeFlags{}; }
+    constexpr const QMetaObject *metaObject() const { return d_ptr && d_ptr->metaObjectFn ? d_ptr->metaObjectFn(d_ptr) : nullptr; }
     inline const char *name() const { return d_ptr ? d_ptr->name : nullptr; }
     inline bool valid() const {return d_ptr;}
 
@@ -405,16 +423,6 @@ private:
 
 private:
     const QtPrivate::QMetaTypeInterface *d_ptr = nullptr;
-};
-
-//特化模板，const &的的MetaType与基础类型保持一支
-template <typename T>
-struct QMetaTypeId2<const T&> : QMetaTypeId2<T> {
-};
-
-template <typename T>
-struct QMetaTypeId2<T &> : QMetaTypeId2<T> {
-    enum {Defined = 0 }; //通过traits技巧用以判断是否被定义
 };
 
 template <typename T>
@@ -523,6 +531,88 @@ namespace QtPrivate {
         };
     };
 
+    //指针类型是否从QObject继承
+    template <typename T>
+    struct IsPointerToTypeDerivedFromQObject
+    {
+        enum { Value = false };
+    };
+    template <>
+    struct IsPointerToTypeDerivedFromQObject<void *>
+    {
+        enum { Value = false };
+    };
+    template <>
+    struct IsPointerToTypeDerivedFromQObject<const void *>
+    {
+        enum { Value = false };
+    };
+    template <>
+    struct IsPointerToTypeDerivedFromQObject<QObject *>
+    {
+        enum { Value = true };
+    };
+    template <typename T>
+    struct IsPointerToTypeDerivedFromQObject<T *>
+    {
+        static char checkType(QObject *);
+        static char checkType(const QObject *);
+        static int checkType(...);
+        enum { Value = sizeof(checkType(static_cast<T *>(nullptr))) == sizeof(char) };
+    };
+
+    // Q_ENUM的宏展开有这个方法
+    // 如果使用了Q_ENUM，将使用展开的方法推断，否则使用下面返回char的方法
+    template <typename T>
+    char qt_getEnumMetaObject(const T&);
+
+    template <typename T>
+    struct IsQEnumHelper {
+        static const T &declval();
+        enum { Value = sizeof(qt_getEnumMetaObject(declval())) == sizeof(QMetaObject *) };
+    };
+
+    template <typename T, typename Enable = void>
+    struct MetaObjectForType
+    {
+        static constexpr const QMetaObject *value() { return nullptr; }
+        using MetaObjectFn = const QMetaObject *(*)(const QMetaTypeInterface *);
+        static constexpr MetaObjectFn metaObjectFunction = nullptr;
+    };
+    template <typename T>
+    struct MetaObjectForType<T *, typename std::enable_if<IsPointerToTypeDerivedFromQObject<T *>::Value>::type>
+    {
+        static constexpr const QMetaObject *value() { return &T::staticMetaObject; }
+        static constexpr const QMetaObject *metaObjectFunction(const QMetaTypeInterface *) { return &T::staticMetaObject; }
+    };
+    template <typename T>
+    struct MetaObjectForType<T, typename std::enable_if<IsQEnumHelper<T>::Value>::type>
+    {
+        static constexpr const QMetaObject *value() { return qt_getEnumMetaObject(T()); }
+        static constexpr const QMetaObject *metaObjectFunction(const QMetaTypeInterface *) { return value(); }
+    };
+
+//    template<typename T>
+//    struct MetaObjectForType<T, std::enable_if_t<
+//            std::disjunction_v<
+//                    std::bool_constant<IsGadgetHelper<T>::IsGadgetOrDerivedFrom>,
+//                    std::is_base_of<QObject, T>
+//            >
+//    >>
+//    {
+//        static constexpr const QMetaObject *value() { return &T::staticMetaObject; }
+//        static constexpr const QMetaObject *metaObjectFunction(const QMetaTypeInterface *) { return &T::staticMetaObject; }
+//    };
+//    template<typename T>
+//    struct MetaObjectForType<T, typename std::enable_if<IsPointerToGadgetHelper<T>::IsGadgetOrDerivedFrom>::type>
+//    {
+//        static constexpr const QMetaObject *value()
+//        {
+//            return &IsPointerToGadgetHelper<T>::BaseType::staticMetaObject;
+//        }
+//        static constexpr const QMetaObject *metaObjectFunction(const QMetaTypeInterface *) { return value(); }
+//    };
+
     template<typename T>
     struct QMetaTypeInterfaceWrapper {
         static constexpr QMetaTypeInterface metaType = {
@@ -531,7 +621,7 @@ namespace QtPrivate {
                 /*.size=*/sizeof(T),
                 /*.flags=*/QMetaTypeTypeFlags<T>::Flags,
                 /*.typeId=*/BuiltinMetaType<T>::value,
-//                /*.metaObjectFn=*/ MetaObjectForType<T>::metaObjectFunction,
+                /*.metaObjectFn=*/ MetaObjectForType<T>::metaObjectFunction,
                 /*.name=*/ QMetaTypeForType<T>::getName(),
                 /*.defaultCtr=*/ QMetaTypeForType<T>::getDefaultCtr(),
                 /*.copyCtr=*/ QMetaTypeForType<T>::getCopyCtr(),
@@ -555,7 +645,7 @@ namespace QtPrivate {
                 /*.size=*/ 0,
                 /*.flags=*/ 0,
                 /*.typeId=*/ BuiltinMetaType<void>::value,
-//                /*.metaObjectFn=*/ nullptr,
+                /*.metaObjectFn=*/ nullptr,
                 /*.name=*/ "void",
                 /*.defaultCtr=*/ nullptr,
                 /*.copyCtr=*/ nullptr,

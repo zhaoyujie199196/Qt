@@ -9,351 +9,66 @@
 #include <QtCore/private/qthread_p.h>
 #include <QtCore/private/qtrace_p.h>
 #include <QtCore/qloggingcategory.h>
+#include <QtCore/private/qtools_p.h>
 #include "qobjectdefs.h"
 #include "qmetaobject_p.h"
 #include "qobject_p.h"
 
 QT_BEGIN_NAMESPACE
 
-static inline const QMetaObjectPrivate *priv(const uint *data)
+static inline bool is_ident_char(char s)
 {
-    return reinterpret_cast<const QMetaObjectPrivate *>(data);
+    return isAsciiLetterOrNumber(s) || s == '_';
 }
 
-static inline QLatin1String stringDataView(const QMetaObject *mo, int index)
+static inline bool is_space(char s)
 {
-    Q_ASSERT(priv(mo->d.data)->revision >= 7);
-    //前面存储了索引与长度，后面存储了字符串的真实值
-    uint offset = mo->d.stringdata[2 * index];
-    uint length = mo->d.stringdata[2 * index + 1];
-    const char *string = reinterpret_cast<const char *>(mo->d.stringdata) + offset;
-    return QLatin1String(string, length);
+    return (s == ' ' || s == '\t');
 }
 
-static inline QByteArray stringData(const QMetaObject *mo, int index)
+static void qRemoveWhitespace(const char *s, char *d)
 {
-    const auto view = stringDataView(mo, index);
-    return QByteArray::fromRawData(view.data(), view.size());
-}
-
-//根据index，获取到QMetaObject中的字符串信息
-static inline const char *rawStringData(const QMetaObject *mo, int index)
-{
-    Q_ASSERT(priv(mo->d.data)->revision >= 7);
-    //一条信息占两位：开始位置和长度
-    uint offset = mo->d.stringdata[2 * index];
-    return reinterpret_cast<const char *>(mo->d.stringdata) + offset;
-}
-
-static inline int typeFromTypeInfo(const QMetaObject *mo, uint typeInfo)
-{
-    if (!(typeInfo & IsUnresolvedType)) {
-        return typeInfo;
+    char last = 0;
+    while (*s && is_space(*s))
+        s++;
+    while (*s) {
+        while (*s && !is_space(*s))
+            last = *d++ = *s++;
+        while (*s && is_space(*s))
+            s++;
+        if (*s && ((is_ident_char(*s) && is_ident_char(last))
+                   || ((*s == ':') && (last == '<')))) {
+            last = *d++ = ' ';
+        }
     }
-    return QMetaType::fromName(rawStringData(mo, typeInfo & TypeNameIndexMask)).id();
-}
-
-static inline QByteArray typeNameFromTypeInfo(const QMetaObject *mo, uint typeInfo)
-{
-    if (typeInfo & IsUnresolvedType) {
-        return stringData(mo, typeInfo & TypeNameIndexMask);
-    }
-    else {
-        return QMetaType(typeInfo).name();
-    }
+    *d = '\0';
 }
 
 static QByteArray normalizeTypeInternal(const char *t, const char *e)
 {
     int len = QtPrivate::qNormalizeType(t, e, nullptr);
-    if (len == 0) {
+    if (len == 0)
         return QByteArray();
-    }
     QByteArray result(len, Qt::Uninitialized);
     len = QtPrivate::qNormalizeType(t, e, result.data());
     Q_ASSERT(len == result.size());
     return result;
 }
 
-//zhaoyujie TODO 这里还需要看看
-static void qRemoveWhitespace(const char *s, char *d)
-{
-    char last = 0;
-    while (*s && is_space(*s)) {
-        s++;
-    }
-    while (*s) {
-        while (*s && !is_space(*s)) {
-            last = *s;
-            *d++ = *s++;
-        }
-        while (*s && is_space(*s)) {
-            s++;
-        }
-        if (*s && ((is_ident_char(*s) && is_ident_char(last))
-                   || ((*s == ':') && (last == '<')))) {
-            last = ' ';
-            *d++ = ' ';
-        }
-    }
-    *d = '\0';
-}
-
-static char *qNormalizeType(char *d, int &templdepth, QByteArray &result)
-{
-    const char *t = d;
-    while (*d && (templdepth || (*d != ',' && *d != ')'))) {
-        if (*d == '<') {
-            ++templdepth;
-        }
-        if (*d == '>') {
-            --templdepth;
-        }
-        ++d;
-    }
-    if (strncmp("void)", t, d - t + 1) != 0) {
-        result += normalizeTypeInternal(t, d);
-    }
-    else {
-        Q_ASSERT(false);
-    }
-    return d;
-}
-
-class QMetaMethodPrivate : public QMetaMethod
-{
-public:
-    static const QMetaMethodPrivate *get(const QMetaMethod *q)
-    {
-        return static_cast<const QMetaMethodPrivate *>(q);
-    }
-
-    inline QByteArray name() const;
-    inline QByteArray signature() const;
-    inline const QMetaObject *enclosingMetaObject() const { return mobj; }
-    inline int typesDataIndex() const;  //参数数据类型的索引
-    inline int parameterTypeInfo(int index) const;
-    inline int parametersDataIndex() const;
-    inline int ownMethodIndex() const;
-    inline QByteArray tag() const;
-    inline QList<QByteArray> parameterTypes() const;
-};
-
-QByteArray QMetaMethodPrivate::name() const
-{
-    return stringData(mobj, data.name());
-}
-
-QByteArray QMetaMethodPrivate::signature() const
-{
-    QByteArray result;
-    result.reserve(256);
-    result += name();
-    result += '(';
-    QList<QByteArray> argTypes = parameterTypes();
-    for (auto i = 0; i < argTypes.size(); ++i) {
-        if (i) {
-            result += ',';
-        }
-        result += argTypes.at(i);
-    }
-    result += ')';
-    return result;
-}
-
-int QMetaMethodPrivate::typesDataIndex() const
-{
-    return data.parameters();
-}
-
-int QMetaMethodPrivate::parameterTypeInfo(int index) const
-{
-    return mobj->d.data[parametersDataIndex() + index];
-}
-
-int QMetaMethodPrivate::parametersDataIndex() const
-{
-    return typesDataIndex() + 1;
-}
-
-int QMetaMethodPrivate::ownMethodIndex() const
-{
-    return (data.d - mobj->d.data - priv(mobj->d.data)->methodData) / Data::Size;
-}
-
-QByteArray QMetaMethodPrivate::tag() const
-{
-    Q_ASSERT(priv(mobj->d.data)->revision > 7);
-    return stringData(mobj, data.tag());
-}
-
-QList<QByteArray> QMetaMethodPrivate::parameterTypes() const
-{
-    int argc = parameterCount();
-    QList<QByteArray> list;
-    list.reserve(argc);
-    int paramsIndex = parametersDataIndex();
-    for (int i = 0; i < argc; ++i) {
-        list += typeNameFromTypeInfo(mobj, mobj->d.data[paramsIndex + i]);
-    }
-    return list;
-}
-
-QMetaProperty::QMetaProperty(const QMetaObject *mobj, int index)
-    : mobj(mobj)
-    , data(getMetaPropertyData(mobj, index))
-{
-    Q_ASSERT(index >= 0 && index < priv(mobj->d.data)->propertyCount);
-    if (data.flags() & EnumOrFlag) {
-        //zhaoyujie TODO 没明白这段代码什么意思
-        Q_ASSERT(false);
-    }
-}
-
-QMetaType QMetaProperty::metaType() const
-{
-    if (!mobj) {
-        return {};
-    }
-    return QMetaType(mobj->d.metaTypes[data.index(mobj)]);
-}
-
-int QMetaProperty::propertyIndex() const
-{
-    if (!mobj) {
-        return -1;
-    }
-    return data.index(mobj) + mobj->propertyOffset();
-}
-
-int QMetaProperty::relativePropertyIndex() const
-{
-    if (!mobj) {
-        return -1;
-    }
-    return data.index(mobj);
-}
-
-QUntypedBindable QMetaProperty::bindable(QObject *object) const
-{
-    QUntypedBindable bindable;
-    void *argv[1] { &bindable };
-    mobj->metacall(object, QMetaObject::BindableProperty, data.index(mobj) + mobj->propertyOffset(), argv);
-    return bindable;
-}
-
-QMetaProperty::Data QMetaProperty::getMetaPropertyData(const QMetaObject *mobj, int index)
-{
-    //mobj->d.data： meta_object信息
-    //propertyData: property开始的地方
-    //index * Data::Size： 在property信息中的偏移
-    return { mobj->d.data + priv(mobj->d.data)->propertyData + index * Data::Size };
-}
-
-int QMetaProperty::Data::index(const QMetaObject *mobj) const
-{
-    return (d - mobj->d.data - priv(mobj->d.data)->propertyData) / Size;
-}
-
-bool QMetaProperty::isReadable() const
-{
-    if (!mobj) {
-        return false;
-    }
-    return data.flags() & Readable;
-}
-
-bool QMetaProperty::isWriteable() const
-{
-    if (!mobj) {
-        return false;
-    }
-    return data.flags() & Writable;
-}
-
-/*
- * 读取object的属性，调用到moc文件的static_metacall方法
- * 返回值作为argv的第一个参数
- * */
-QVariant QMetaProperty::read(const QObject *obj) const
-{
-    if (!obj || !mobj) {
-        return QVariant();
-    }
-    int status = -1;
-    QVariant value;
-    void *argv[] = { nullptr, &value, &status };
-    QMetaType t(mobj->d.metaTypes[data.index(mobj)]);
-    if (t == QMetaType::fromType<QVariant>()) {  //返回值是QVariant
-        argv[0] = &value;
-    }
-    else {
-        value = QVariant(t, nullptr);
-        argv[0] = value.data();
-    }
-    if (priv(mobj->d.data)->flags & PropertyAccessInStaticMetaCall && mobj->d.static_metacall) {
-        Q_ASSERT(false);
-//        mobj->d.static_metacall(const_cast<QObject *>(object), QMetaObject::ReadProperty, data.index(mobj), argv);
-    }
-    else {
-        QMetaObject::metacall(const_cast<QObject *>(obj), QMetaObject::ReadProperty, data.index(mobj) + mobj->propertyOffset(), argv);
-    }
-
-    if (status != -1) {
-        return value;
-    }
-    if (t != QMetaType::fromType<QVariant>() && argv[0] != value.data()) {
-        return QVariant(t, argv[0]);
-    }
-    return value;
-}
-
-bool QMetaProperty::write(QObject *obj, const QVariant &value) const
-{
-    if (!obj || !isWriteable()) {
-        return false;
-    }
-    QVariant v = value;
-    QMetaType t(mobj->d.metaTypes[data.index(mobj)]);
-    if (t != QMetaType::fromType<QVariant>() && t != v.metaType()) {
-        //zhaoyujie TODO
-        Q_ASSERT(false);
-    }
-    int status = -1;
-    int flags = 0;
-    void *argv[] = { nullptr, &v, &status, &flags };
-    if (t == QMetaType::fromType<QVariant>()) {
-        argv[0] = &v;
-    }
-    else {
-        argv[0] = v.data();
-    }
-    if (priv(mobj->d.data)->flags & PropertyAccessInStaticMetaCall && mobj->d.static_metacall) {
-        Q_ASSERT(false);  //zhaoyujie TODO 上面的判断什么意思？什么时候能够走到？
-    }
-    else {
-        QMetaObject::metacall(obj, QMetaObject::WriteProperty, data.index(mobj) + mobj->propertyOffset(), argv);
-    }
-    return status;
-}
-
-//从字符串中提取参数类型
+//从参数字符串中解析出参数列表
 static void argumentTypesFromString(const char *str, const char *end, QArgumentTypeArray &types)
 {
     Q_ASSERT(str <= end);
     while (str != end) {
-        if (!types.isEmpty()) {
-            ++str;  //跳过逗号分隔符
-        }
+        if (!types.isEmpty())
+            ++str; // Skip comma
         const char *begin = str;
-        int level = 0; //QMap<int, int>之类的层级
-        while (str != end && (level > 0 || *str != ',')) {  //查找到逗号，提取中间的内容
-            if (*str == '<') {
+        int level = 0;
+        while (str != end && (level > 0 || *str != ',')) {
+            if (*str == '<')
                 ++level;
-            }
-            else if (*str == '>') {
+            else if (*str == '>')
                 --level;
-            }
             ++str;
         }
         QByteArray argType(begin, str - begin);
@@ -362,15 +77,101 @@ static void argumentTypesFromString(const char *str, const char *end, QArgumentT
     }
 }
 
-/*
- * 解析如sig(const QString &, bool, int) 形式的信号槽写法
- * 方法名作为返回值，参数类型解析到types中
- * */
+//获取QMetaObject中string索引为index的字符串
+static inline const char *rawStringData(const QMetaObject *mo, int index)
+{
+    uint offset = mo->d.stringdata[2 * index];
+    return reinterpret_cast<const char *>(mo->d.stringdata) + offset;
+}
+
+static inline QLatin1String stringDataView(const QMetaObject *mo, int index)
+{
+    uint offset = mo->d.stringdata[2 * index];
+    uint length = mo->d.stringdata[2 * index + 1];
+    const char *str = reinterpret_cast<const char *>(mo->d.stringdata) + offset;
+    return QLatin1String(str, qsizetype(length));
+}
+
+static inline QByteArray stringData(const QMetaObject *mo, int index)
+{
+    const auto view = stringDataView(mo, index);
+    return QByteArray::fromRawData(view.data(), view.size());
+}
+
+static inline int typeFromTypeInfo(const QMetaObject *mo, uint typeinfo)
+{
+    if (!(typeinfo & IsUnresolvedType)) {
+        return typeinfo;
+    }
+    return QMetaType::fromName(rawStringData(mo, typeinfo & TypeNameIndexMask)).id();
+}
+
+static inline QByteArray typeNameFromTypeInfo(const QMetaObject *mo, uint typeinfo)
+{
+    //判断是否是QMetaType注册的类型，如果是，使用QMetaType中的信息，否则信息存放在moc文件的stringdata字符串中
+    if (typeinfo & IsUnresolvedType) {
+        return stringData(mo, typeinfo & TypeNameIndexMask);
+    }
+    else {
+        return QMetaType(typeinfo).name();
+    }
+}
+
+//内部使用的private方法，直接使用继承没有使用代理
+//可以直接调用基类的方法，不需要重新定义接口来转发调用基类的方法
+class QMetaMethodPrivate : public QMetaMethodInvoker
+{
+public:
+    static const QMetaMethodPrivate *get(const QMetaMethod *q)
+    {
+        return static_cast<const QMetaMethodPrivate *>(q);
+    }
+
+    //获取函数签名，函数签名带上参数
+    inline QByteArray signature() const;
+    inline QByteArray name() const;
+    //参数信息
+    inline int returnType() const;
+    inline int parameterType(int index) const;
+    inline int parameterCount() const;
+    inline int typesDataIndex() const;
+    inline int parametersDataIndex() const;
+    inline uint parameterTypeInfo(int index) const;
+    inline QByteArray parameterTypeName(int index) const;
+    inline QList<QByteArray> parameterTypes() const;
+    inline QList<QByteArray> parameterNames() const;
+    inline int ownMethodIndex() const;
+    inline const QtPrivate::QMetaTypeInterface *returnMetaTypeInterface() const;
+    inline const QtPrivate::QMetaTypeInterface *const *parameterMetaTypeInterfaces() const;
+
+private:
+    void checkMethodMetaTypeConsistency(const QtPrivate::QMetaTypeInterface *iface, int index) const;
+    QMetaMethodPrivate() = default;
+};
+
+static inline const QMetaObjectPrivate *priv(const uint *data)
+{
+    return reinterpret_cast<const QMetaObjectPrivate *>(data);
+}
+
+//查找克隆方法的原方法
+//带有默认参数的函数，在moc中会生成多个函数，生成的函数带有MethodCloned标志，原方法不带此标志
+int QMetaObjectPrivate::originalClone(const QMetaObject *mobj, int local_method_index)
+{
+    Q_ASSERT(local_method_index < get(mobj)->methodCount);
+    while (QMetaMethod::fromRelativeMethodIndex(mobj, local_method_index).data.flags() & MethodCloned) {
+        Q_ASSERT(local_method_index > 0);
+        --local_method_index;
+    }
+    return local_method_index;
+}
+
 QByteArray QMetaObjectPrivate::decodeMethodSignature(const char *signature, QArgumentTypeArray &types)
 {
     Q_ASSERT(signature != nullptr);
+    //strchr：查找第一个出现的字符并返回字符后面的字符串位置
     const char *lparens = strchr(signature, '(');
-    if (!lparens) {  //没有查找到()，返回
+    if (!lparens) {
         return QByteArray();
     }
     const char *rparens = strrchr(lparens + 1, ')');
@@ -382,54 +183,14 @@ QByteArray QMetaObjectPrivate::decodeMethodSignature(const char *signature, QArg
     return QByteArray::fromRawData(signature, nameLength);
 }
 
-int QMetaObjectPrivate::indexOfMethod(const QMetaObject *m, const QByteArray &name, int argc,
-                                      const QArgumentType *types) {
-    int i = indexOfMethodRelative<0>(&m, name, argc, types);
-    if (i >= 0) {
-        i += m->methodOffset();
-    }
-    return i;
-}
-
-int QMetaObjectPrivate::indexOfSignalRelative(const QMetaObject **baseObject, const QByteArray &name, int argc,
-                                              const QArgumentType *types)
-{
-    int i = indexOfMethodRelative<MethodSignal>(baseObject, name, argc, types);
-    const QMetaObject *m = *baseObject;
-    if (i >= 0 && m && m->d.superdata) {
-        int conflict = indexOfMethod(m->d.superdata, name, argc, types);
-        if (conflict >= 0) {
-            //子类方法与父类方法冲突了
-            Q_ASSERT(false);
-        }
-    }
-    return i;
-}
-
-int QMetaObjectPrivate::indexOfSlotRelative(const QMetaObject **baseObject, const QByteArray &name, int argc,
-                                            const QArgumentType *types) {
-    return indexOfMethodRelative<MethodSlot>(baseObject, name, argc, types);
-}
-
-int QMetaObjectPrivate::absoluteSignalCount(const QMetaObject *m)
-{
-    Q_ASSERT(m != nullptr);
-    int n = priv(m->d.data)->signalCount;
-    for (m = m->d.superdata; m; m = m->d.superdata) {
-        n += priv(m->d.data)->signalCount;
-    }
-    return n;
-}
-
 template <int MethodType>
 inline int QMetaObjectPrivate::indexOfMethodRelative(const QMetaObject **baseObject, const QByteArray &name, int argc, const QArgumentType *types)
 {
-    for (const QMetaObject *m = *baseObject; m; m = m->d.superdata) {
+    for (const QMetaObject *m = *baseObject; m; m = m->d.superdata)
+    {
         Q_ASSERT(priv(m->d.data)->revision >= 7);
-        //查找signal，只查找信号，查找slot，会查找slot和invoke
         int i = (MethodType == MethodSignal) ? (priv(m->d.data)->signalCount - 1) : (priv(m->d.data)->methodCount - 1);
         const int end = (MethodType == MethodSlot) ? (priv(m->d.data)->signalCount) : 0;
-
         for (; i >= end; --i) {
             auto data = QMetaMethod::fromRelativeMethodIndex(m, i);
             if (methodMatch(m, data, name, argc, types)) {
@@ -441,42 +202,27 @@ inline int QMetaObjectPrivate::indexOfMethodRelative(const QMetaObject **baseObj
     return -1;
 }
 
-bool QMetaObjectPrivate::methodMatch(const QMetaObject *m, const QMetaMethod &method, const QByteArray &name, int argc,
-                                     const QArgumentType *types) {
-    const auto &data = method.data;
-    if (data.argc() != uint(argc)) {
-        return false;
-    }
-    //zhaoyujie TODO stringdata中的数据和索引是怎么对应上的？
-    if (stringData(m, data.name()) != name) {  //函数名称不同
-        return false;
-    }
-    int paramsIndex = data.parameters() + 1;  //跳过returnType
-    for (int i = 0; i < argc; ++i) {
-        uint typeInfo = m->d.data[paramsIndex + i];
-        if (types[i].type()) {  //如果有tyoeid类型，使用typeid比较
-            if (types[i].type() != typeFromTypeInfo(m, typeInfo)) {
-                return false;
-            }
-        }
-        else {  //如果有typename，使用typename比较
-            if (types[i].name() != typeNameFromTypeInfo(m, typeInfo)) {
-                return false;
-            }
-        }
-    }
-    return true;
+int QMetaObjectPrivate::indexOfSignalRelative(const QMetaObject **baseObject, const QByteArray &name, int argc, const QArgumentType *types)
+{
+    int i = indexOfMethodRelative<MethodSignal>(baseObject, name, argc, types);
+//#ifndef QT_NO_DEBUG
+//    const QMetaObject *m = *baseObject;
+//    if (i >= 0 && m && m->d.superdata) {
+//        int conflict = indexOfMethod(m->d.superdata, name, argc, types);
+//        if (conflict >= 0) {
+//            QMetaMethod conflictMethod = m->d.superdata->method(conflict);
+//            qWarning("QMetaObject::indexOfSignal: signal %s from %s redefined in %s",
+//                     conflictMethod.methodSignature().constData(),
+//                     objectClassName(m->d.superdata), objectClassName(m));
+//        }
+//    }
+//#endif
+    return i;
 }
 
-int QMetaObjectPrivate::originalClone(const QMetaObject *mobj, int local_method_index)
+int QMetaObjectPrivate::indexOfSlotRelative(const QMetaObject **m, const QByteArray &name, int argc, const QArgumentType *types)
 {
-#pragma message("这个方法什么意思....")
-    Q_ASSERT(local_method_index < get(mobj)->methodCount);
-    while (QMetaMethod::fromRelativeMethodIndex(mobj, local_method_index).data.flags() & MethodCloned) {
-        Q_ASSERT(local_method_index > 0);
-        --local_method_index;
-    }
-    return local_method_index;
+    return indexOfMethodRelative<MethodSlot>(m, name, argc, types);
 }
 
 QMetaMethod QMetaObjectPrivate::signal(const QMetaObject *m, int signal_index)
@@ -490,16 +236,90 @@ QMetaMethod QMetaObjectPrivate::signal(const QMetaObject *m, int signal_index)
     if (i < 0 && m->d.superdata) {
         return signal(m->d.superdata, signal_index);
     }
+
     if (i >= 0 && i < priv(m->d.data)->signalCount) {
         return QMetaMethod::fromRelativeMethodIndex(m, i);
     }
     return QMetaMethod();
 }
 
-//检测连接参数是否匹配，信号的个数要不少于槽的个数，多余的参数会被截断丢弃
-bool QMetaObjectPrivate::checkConnectArgs(int signalArgc, const QArgumentType *signalTypes, int methodArgc,
-                                          const QArgumentType *methodTypes) {
-    if (signalArgc < methodArgc) {  //信号的参数数量要>=槽的参数数量
+int QMetaObjectPrivate::indexOfSignal(const QMetaObject *m, const QByteArray &name, int argc, const QArgumentType *types)
+{
+    int i = indexOfSignalRelative(&m, name, argc, types);
+    if (i >= 0) {
+        i += m->methodOffset();
+    }
+    return i;
+}
+
+int QMetaObjectPrivate::indexOfSlot(const QMetaObject *m, const QByteArray &name, int argc, const QArgumentType *types)
+{
+    int i = indexOfSlotRelative(&m, name, argc, types);
+    if (i >= 0) {
+        i += m->methodOffset();
+    }
+    return i;
+}
+
+int QMetaObjectPrivate::indexOfMethod(const QMetaObject *m, const QByteArray &name, int argc, const QArgumentType *types)
+{
+    int i = indexOfMethodRelative<0>(&m, name, argc, types);
+    if (i > 0) {
+        i += m->methodOffset();
+    }
+    return i;
+}
+
+int QMetaObjectPrivate::indexOfConstructor(const QMetaObject *m, const QByteArray &name, int argc, const QArgumentType *types)
+{
+    for (int i = priv(m->d.data)->constructorCount - 1; i >= 0; --i) {
+        const QMetaMethod method = QMetaMethod::fromRelativeConstructorIndex(m, i);
+        if (methodMatch(m, method, name, argc, types)) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+bool QMetaObjectPrivate::methodMatch(const QMetaObject *m, const QMetaMethod &method, const QByteArray &name, int argc, const QArgumentType *types)
+{
+    const QMetaMethod::Data &data = method.data;
+    auto priv = QMetaMethodPrivate::get(&method);
+    //比较参数个数
+    if (priv->parameterCount() != argc) {
+        return false;
+    }
+    //比较函数名字
+    if (stringData(m, data.name()) != name) {
+        return false;
+    }
+
+    //检查参数类型是否相同
+    const QtPrivate::QMetaTypeInterface * const *ifaces = priv->parameterMetaTypeInterfaces();
+    int paramsIndex = data.parameters() + 1;
+    for (int i = 0; i < argc; ++i) {
+        uint typeInfo = m->d.data[paramsIndex + 1];
+        if (int id = types[i].type()) {
+            if (id == QMetaType(ifaces[i]).id()) {
+                continue;
+            }
+            if (id != typeFromTypeInfo(m, typeInfo)) {
+                return false;
+            }
+        }
+        else {
+            if (types[i].name() == QMetaType(ifaces[i]).name())
+                continue;
+            if (types[i].name() != typeNameFromTypeInfo(m, typeInfo))
+                return false;
+        }
+    }
+    return true;
+}
+
+bool QMetaObjectPrivate::checkConnectArgs(int signalArgc, const QArgumentType *signalTypes, int methodArgc, const QArgumentType *methodTypes)
+{
+    if (signalArgc < methodArgc) {
         return false;
     }
     for (int i = 0; i < methodArgc; ++i) {
@@ -515,6 +335,7 @@ bool QMetaObjectPrivate::checkConnectArgs(const QMetaMethodPrivate *signal, cons
     if (signal->methodType() != QMetaMethod::Signal) {
         return false;
     }
+    //TODO 没有考虑method的默认参数？
     if (signal->parameterCount() < method->parameterCount()) {
         return false;
     }
@@ -522,9 +343,7 @@ bool QMetaObjectPrivate::checkConnectArgs(const QMetaMethodPrivate *signal, cons
     const QMetaObject *rmeta = method->enclosingMetaObject();
     for (int i = 0; i < method->parameterCount(); ++i) {
         uint sourceTypeInfo = signal->parameterTypeInfo(i);
-        uint targetTypeInfo = signal->parameterTypeInfo(i);
-        //0x80000000 | 9 类型的，通过名字判断  zhaoyujie TODO 直接通过sourceTypeInfo判断不行吗?这里为什么要绕一个圈？
-        Q_ASSERT(false);
+        uint targetTypeInfo = method->parameterTypeInfo(i);
         if ((sourceTypeInfo & IsUnresolvedType) || (targetTypeInfo & IsUnresolvedType)) {
             QByteArray sourceName = typeNameFromTypeInfo(smeta, sourceTypeInfo);
             QByteArray targetName = typeNameFromTypeInfo(rmeta, targetTypeInfo);
@@ -543,47 +362,14 @@ bool QMetaObjectPrivate::checkConnectArgs(const QMetaMethodPrivate *signal, cons
     return true;
 }
 
-static void computeOffsets(const QMetaObject *metaobject, int *signalOffset, int *methodOffset)
+int QMetaObjectPrivate::absoluteSignalCount(const QMetaObject *m)
 {
-    *signalOffset = *methodOffset = 0;
-    const QMetaObject *m = metaobject->d.superdata;
-    while (m) {
-        const QMetaObjectPrivate *d = QMetaObjectPrivate::get(m);
-        *methodOffset += d->methodCount;
-        *signalOffset += d->signalCount;
-        m = m->d.superdata;
+    Q_ASSERT(m != nullptr);
+    int n = priv(m->d.data)->signalCount;
+    for (m = m->d.superdata; m; m = m->d.superdata) {
+        n += priv(m->d.data)->signalCount;
     }
-}
-
-void QMetaObjectPrivate::memberIndexes(const QObject *obj, const QMetaMethod &member, int *signalIndex,
-                                       int *methodIndex) {
-    *signalIndex = -1;
-    *methodIndex = -1;
-    if (!obj || !member.mobj) {
-        return;
-    }
-    const QMetaObject *m = obj->metaObject();
-    while (m != nullptr & m != member.mobj) {
-        m = m->d.superdata;
-    }
-    if (!m) {  //method里放的元对象与obj的元对象不匹配
-        return;
-    }
-    //method在这个object中的索引
-    *signalIndex = *methodIndex = member.relativeMethodIndex();
-
-    int signalOffset;
-    int methodOffset;
-    computeOffsets(m, &signalOffset, &methodOffset);
-
-    *methodIndex += methodOffset;
-    if (member.methodType() == QMetaMethod::Signal) {
-        *signalIndex = originalClone(m, *signalIndex);
-        *signalIndex += signalOffset;
-    }
-    else {
-        *signalIndex = -1;
-    }
+    return n;
 }
 
 static inline const char *objectClassName(const QMetaObject *m)
@@ -596,20 +382,21 @@ const char *QMetaObject::className() const
     return objectClassName(this);
 }
 
-const QMetaObject *QMetaObject::superClass() const
-{
-    return d.superdata;
-}
-
 bool QMetaObject::inherits(const QMetaObject *metaObject) const noexcept
 {
     const QMetaObject *m = this;
-    do {
+    while (m) {
         if (metaObject == m) {
             return true;
         }
-    } while ( (m = m->d.superdata) );
+        m = m->d.superdata;
+    }
     return false;
+}
+
+QObject *QMetaObject::cast(QObject *obj) const
+{
+    return const_cast<QObject *>(cast(const_cast<const QObject *>(obj)));
 }
 
 const QObject *QMetaObject::cast(const QObject *obj) const
@@ -617,55 +404,126 @@ const QObject *QMetaObject::cast(const QObject *obj) const
     return (obj && obj->metaObject()->inherits(this)) ? obj : nullptr;
 }
 
-QByteArray QMetaObject::normalizedType(const char *type)
-{
-    Q_ASSERT(false);  //zhaoyujie TODO
-    return normalizeTypeInternal(type, type + qstrlen(type));
-}
+#define GET_OFFSET_FUNC(member) \
+int offset = 0;                 \
+const QMetaObject *m = d.superdata; \
+while (m) {                     \
+    offset += priv(m->d.data)->member; \
+    m = m->d.superdata;\
+}                               \
+return offset;
 
-int QMetaObject::propertyCount() const
-{
-    int n = priv(d.data)->propertyCount;
-    const QMetaObject *m = d.superdata.direct;
-    while (m) {  //循环添加父的propertyCount
-        n += priv(m->d.data)->propertyCount;
-        m = m->d.superdata;
-    }
-    return n;
-}
-
-int QMetaObject::methodCount() const
-{
-    int n = priv(d.data)->methodCount;
-    const QMetaObject *m = d.superdata;
-    while (m) {
-        n += priv(m->d.data)->methodCount;
-        m = m->d.superdata;
-    }
-    return n;
-}
 
 int QMetaObject::methodOffset() const
 {
-    int offset = 0;
-    const QMetaObject *m = d.superdata;
-    while (m) {
-        offset += priv(m->d.data)->methodCount;
-        m = m->d.superdata;
-    }
-    return offset;
+    GET_OFFSET_FUNC(methodCount)
+}
+
+int QMetaObject::enumeratorOffset() const
+{
+    GET_OFFSET_FUNC(enumeratorCount)
 }
 
 int QMetaObject::propertyOffset() const
 {
-    int offset = 0;
-    const QMetaObject *m = d.superdata;
-    while (m) {
-        offset += priv(m->d.data)->propertyCount;
-        m = m->d.superdata;
-    }
-    return offset;
+    GET_OFFSET_FUNC(propertyCount)
 }
+
+int QMetaObject::classInfoOffset() const
+{
+    GET_OFFSET_FUNC(classInfoCount)
+}
+
+#undef GET_OFFSET_FUNC
+
+
+QMetaProperty QMetaObject::property(int index) const
+{
+    int i = index;
+    i -= propertyOffset();
+    if (i < 0 && d.superdata) {
+        return d.superdata->property(index);
+    }
+    if (i >= 0 && i < priv(d.data)->propertyCount) {
+        return QMetaProperty(this, i);
+    }
+    return QMetaProperty();
+}
+
+QMetaMethod QMetaObject::method(int index) const
+{
+    int i = index;
+    i -= methodOffset();
+    if (i < 0 && d.superdata)
+        return d.superdata->method(index);
+
+    if (i >= 0 && i < priv(d.data)->methodCount)
+        return QMetaMethod::fromRelativeMethodIndex(this, i);
+    return QMetaMethod();
+}
+
+QMetaEnum QMetaObject::enumerator(int index) const
+{
+    int i = index;
+    i -= enumeratorOffset();
+    if (i < 0 && d.superdata)
+        return d.superdata->enumerator(index);
+
+    if (i >= 0 && i < priv(d.data)->enumeratorCount)
+        return QMetaEnum(this, i);
+    return QMetaEnum();
+}
+
+QMetaClassInfo QMetaObject::classInfo(int index) const
+{
+    int i = index;
+    i -= classInfoOffset();
+    if (i < 0 && d.superdata)
+        return d.superdata->classInfo(index);
+
+    QMetaClassInfo result;
+    if (i >= 0 && i < priv(d.data)->classInfoCount) {
+        result.mobj = this;
+        result.data = { d.data + priv(d.data)->classInfoData + i * QMetaClassInfo::Data::Size };
+    }
+    return result;
+}
+
+int QMetaObject::constructorCount() const
+{
+    return priv(d.data)->constructorCount;
+}
+
+#define GET_COUNT_FUNC(member) \
+int n = priv(d.data)->member;  \
+const QMetaObject *m = d.superdata; \
+while (m) {                    \
+    n += priv(m->d.data)->member;  \
+    m = m->d.superdata;                           \
+}                              \
+return n;
+
+int QMetaObject::methodCount() const
+{
+    GET_COUNT_FUNC(methodCount)
+}
+
+int QMetaObject::enumeratorCount() const
+{
+    GET_COUNT_FUNC(enumeratorCount)
+}
+
+int QMetaObject::propertyCount() const
+{
+    GET_COUNT_FUNC(propertyCount)
+}
+
+int QMetaObject::classInfoCount() const
+{
+    GET_COUNT_FUNC(classInfoCount)
+}
+
+#undef GET_COUNT_FUNC
 
 int QMetaObject::indexOfProperty(const char *name) const
 {
@@ -675,75 +533,76 @@ int QMetaObject::indexOfProperty(const char *name) const
         for (int i = 0; i < d->propertyCount; ++i) {
             const QMetaProperty::Data data = QMetaProperty::getMetaPropertyData(m, i);
             const char *prop = rawStringData(m, data.name());
-            //zhaoyujie TODO 这里的比较为什么先比较0，再从1开始？不是直接比较就可以了吗？
-            if (name[0] == prop[0] && strcmp(name + 1, prop + 1) == 0) {
+            if (strcmp(name, prop) == 0) {
                 i += m->propertyOffset();
                 return i;
             }
         }
         m = m->d.superdata;
     }
-    Q_ASSERT(false);
+    if (priv(this->d.data)->flags & DynamicMetaObject) {
+        //TODO 创建Property
+        Q_ASSERT(false);
+    }
     return -1;
 }
 
-QMetaMethod QMetaObject::method(int index) const
+bool QMetaObject::checkConnectArgs(const char *signal, const char *method)
 {
-    int i = index;
-    i -= methodOffset();
-    if (i < 0 && d.superdata) {
-        return d.superdata->method(index);
+    const char *s1 = signal;
+    const char *s2 = method;
+    while (*s1++ != '(') {}
+    while (*s2++ != '(') {}
+
+    //完全匹配
+    if (*s2 == ')' || qstrcmp(s1, s2) == 0) {
+        return true;
     }
-    if (i >= 0 && i < priv(d.data)->methodCount) {
-        return QMetaMethod::fromRelativeMethodIndex(this, i);
+    const auto s1len = qstrlen(s1);
+    const auto s2len = qstrlen(s2);
+    //method的参数比signal少
+    if (s2len < s1len && strncmp(s1, s2, s2len - 1) == 0 && s1[s2len - 1] == ',') {
+        return true;
     }
-    return QMetaMethod();
+    return false;
 }
 
-QMetaProperty QMetaObject::property(int index) const
+bool QMetaObject::checkConnectArgs(const QMetaMethod &signal, const QMetaMethod &method)
 {
-    int i = index;
-    i -= propertyOffset();
-    if (i < 0 && d.superdata) {  //索引小于0，说明是父类的属性
-        return d.superdata->property(index);
-    }
-    if (i >= 0 && i < priv(d.data)->propertyCount) {
-        return QMetaProperty(this, i);
-    }
-    return QMetaProperty();
+    auto s = QMetaMethodPrivate::get(&signal);
+    auto m = QMetaMethodPrivate::get(&method);
+    return QMetaObjectPrivate::checkConnectArgs(s, m);
 }
 
-int QMetaObject::static_metacall(Call cl, int idx, void **argv) const
+static char *qNormalizeType(char *d, int &templdepth, QByteArray &result)
 {
-    Q_ASSERT(priv(d.data)->revision >= 6);
-    if (!d.static_metacall) {
-        return 0;
+    const char *t = d;
+    while (*d && (templdepth
+                  || (*d != ',' && *d != ')'))) {
+        if (*d == '<')
+            ++templdepth;
+        if (*d == '>')
+            --templdepth;
+        ++d;
     }
-    d.static_metacall(nullptr, cl, idx, argv);
-    return -1;
-}
+    // "void" should only be removed if this is part of a signature that has
+    // an explicit void argument; e.g., "void foo(void)" --> "void foo()"
+    if (strncmp("void)", t, d - t + 1) != 0)
+        result += normalizeTypeInternal(t, d);
 
-int QMetaObject::metacall(QObject *object, Call cl, int idx, void **argv)
-{
-    if (object->d_ptr->metaObject) {
-        return object->d_ptr->metaObject->metaCall(object, cl, idx, argv);
-    }
-    else {
-        return object->qt_metacall(cl, idx, argv);
-    }
+    return d;
 }
 
 QByteArray QMetaObject::normalizedSignature(const char *method)
 {
     QByteArray result;
-    if (!method || !*method) {
+    if (!method || !*method)
         return result;
-    }
     int len = int(strlen(method));
-
     QVarLengthArray<char> stackbuf(len + 1);
     char *d = stackbuf.data();
     qRemoveWhitespace(method, d);
+
     result.reserve(len);
 
     int argdepth = 0;
@@ -760,144 +619,236 @@ QByteArray QMetaObject::normalizedSignature(const char *method)
             --argdepth;
         result += *d++;
     }
+
     return result;
 }
 
-void QMetaObject::connectSlotsByName(QObject *o) {
-    if (!o) {
+QByteArray QMetaObject::normalizedType(const char *type)
+{
+    return normalizeTypeInternal(type, type + qstrlen(type));
+}
+
+int QMetaObject::static_metacall(Call c1, int idx, void **argv) const
+{
+    Q_ASSERT(priv(d.data)->revision >= 6);
+    if (!d.static_metacall) {
+        return 0;
+    }
+    d.static_metacall(nullptr, c1, idx, argv);
+    return -1;
+}
+
+int QMetaObject::metacall(QObject *object, Call call, int idx, void **argv)
+{
+    if (object->d_ptr->metaObject) {
+        return object->d_ptr->metaObject->metaCall(object, call, idx, argv);
+    }
+    else {
+        return object->qt_metacall(call, idx, argv);
+    }
+}
+
+QMetaProperty::QMetaProperty(const QMetaObject *mobj, int index)
+    : mobj(mobj)
+    , data(getMetaPropertyData(mobj, index))
+{
+    Q_ASSERT(index >= 0 && index < priv(mobj->d.data)->propertyCount);
+
+    if (!(data.flags() & EnumOrFlag)) {
         return;
     }
-    const QMetaObject *mo = o->metaObject();
-    Q_ASSERT(mo);
-
-    QObjectList list = o->findChildren<QObject *>(QString());
-    list << o;
-
-    for (int i = 0; i < mo->methodCount(); ++i) {
-        const QByteArray slotSignature = mo->method(i).methodSignature();
-        const char *slot = slotSignature.constData();
-        Q_ASSERT(slot);
-
-        //必须以on_开头
-        if (slot[0] != 'o' || slot[1] != 'n' || slot[2] != '_') {
-            continue;
-        }
-
-        bool foundIt = false;
-        for (int j = 0; j < list.count(); ++j) {
-            const QObject *co = list.at(j);
-            const QByteArray coName = co->objectName().toLatin1();
-            //receiver的objectName必须符合"on_<objectName>_<signal>"的格式
-            if (coName.isEmpty() || qstrncmp(slot + 3, coName.constData(), coName.size()) || slot[coName.size() + 3] != '_') {
-                continue;
-            }
-
-            const char *signal = slot + coName.size() + 4;
-
-            //符合on_<objectName>_<signal>格式
-            const QMetaObject *smeta;
-            int sigIndex = co->d_func()->signalIndex(signal, &smeta);
-            if (sigIndex < 0) {
-                QList<QByteArray> compatibleSignals;
-                const QMetaObject *smo = co->metaObject();
-                int sigLen = int(qstrlen(signal)) - 1;
-                for (int k = QMetaObjectPrivate::absoluteSignalCount(smo) - 1; k >= 0; --k) {
-                    const QMetaMethod method = QMetaObjectPrivate::signal(smo, k);
-                    if (!qstrncmp(method.methodSignature().constData(), signal, sigLen)) {
-                        smeta = method.enclosingMetaObject();
-                        sigIndex = k;
-                        compatibleSignals.prepend(method.methodSignature());
-                    }
-                }
-                if (compatibleSignals.size() > 1) {
-//                    qCWarning(lcConnectSlotsByName) << "QMetaObject::connectSlotsByName: Connecting slot" << slot
-//                                                                                                          << "with the first of the following compatible signals:" << compatibleSignals;
-                }
-            }
-            if (sigIndex < 0) {
-                continue;
-            }
-
-            if (Connection(QMetaObjectPrivate::connect(co, sigIndex, smeta, o, i))) {
-                foundIt = true;
-                break;
-            }
-        }
-        if (foundIt) {
-            while (mo->method(i + 1).attributes() & QMetaMethod::Cloned) {
-                ++i;
-            }
-        }
-        else if (!(mo->method(i).attributes() & QMetaMethod::Cloned)) {
-            int iParen = slotSignature.indexOf('(');
-            int iLastUnderscore = slotSignature.lastIndexOf('_', iParen - 1);
-            if (iLastUnderscore > 3) {
-                qCWarning(lcConnectSlotsByName,
-                          "QMetaObject::connectSlotsByName: No matching signal for %s", slot)
-            }
-        }
-    }
-}
-
-bool QMetaObject::checkConnectArgs(const char *signal, const char *method)
-{
+    //TODO 对枚举做特殊处理
     Q_ASSERT(false);
-    const char *s1 = signal;
-    const char *s2 = method;
-    //跳过函数名，只比较参数
-    while (*s1++ != '(') {
-    }
-    while (*s2++ != '(' ) {
-    }
-
-    if (*s2 == ')' || qstrcmp(s1, s2) == 0) {
-        return true;
-    }
-    const auto s1len = qstrlen(s1);
-    const auto s2len = qstrlen(s2);
-    //signal的参数允许比method多，比较signal参数的个数
-    if (s2len < s1len && strncmp(s1, s2, s2len - 1) == 0 && s1[s2len - 1] == ',') {
-        return true;
-    }
-    return false;
 }
 
-bool QMetaObject::checkConnectArgs(const QMetaMethod &signal, const QMetaMethod &method)
+
+
+int QMetaProperty::Data::index(const QMetaObject *mobj) const
 {
+    return (d - mobj->d.data - priv(mobj->d.data)->propertyData) / Size;
+}
+
+QMetaProperty::Data QMetaProperty::getMetaPropertyData(const QMetaObject *mobj, int index)
+{
+    //起始地址 + property的偏移 + index的偏移
+    return { mobj->d.data + priv(mobj->d.data)->propertyData + index * Data::Size };
+}
+
+QVariant QMetaProperty::read(const QObject *object) const
+{
+    if (!mobj || !object) {
+        return QVariant();
+    }
+    int status = -1;
+    QVariant value;
+    void *argv[] = { nullptr, &value, &status };
+    QMetaType t(mobj->d.metaTypes[data.index(mobj)]);
+    if (t == QMetaType::fromType<QVariant>()) {
+        argv[0] = value.data();
+    }
+    else {
+        value = QVariant(t, nullptr);
+        argv[0] = value.data();
+    }
+    if (priv(mobj->d.data)->flags & PropertyAccessInStaticMetaCall && mobj->d.static_metacall) {
+        mobj->d.static_metacall(const_cast<QObject *>(object), QMetaObject::ReadProperty, data.index(mobj), argv);
+    }
+    else {
+        //TODO 不是从static_metacall调用
+        Q_ASSERT(false);
+    }
+    if (status != -1) {
+        return value;
+    }
     Q_ASSERT(false);
-    return false;
-//    return QMetaObjectPrivate::checkConnectArgs(
-//                QMetaObjectPrivate::get(&signal),
-//                QMetaObjectPrivate::get(&method);
-//            );
+    if (t != QMetaType::fromType<QVariant>() && argv[0] != value.data()) {
+        return QVariant(t, argv[0]);
+    }
+    return value;
 }
 
-QMetaObject::Connection::Connection(const QMetaObject::Connection &other)
-        : d_ptr(other.d_ptr)
+bool QMetaProperty::write(QObject *object, const QVariant &value) const
 {
-    if (d_ptr) {
-        static_cast<QObjectPrivate::Connection *>(d_ptr)->ref();
+    if (!object || !isWritable()) {
+        return false;
+    }
+    //构建右值
+    return write(object, QVariant(value));
+}
+
+bool QMetaProperty::write(QObject *object, QVariant &&v) const
+{
+    if (!object || !isWritable()) {
+        return false;
+    }
+    QMetaType t(mobj->d.metaTypes[data.index(mobj)]);
+    if (t != QMetaType::fromType<QVariant>() && t != v.metaType()) {
+        if (isEnumType() && !t.metaObject() && v.metaType().id() == QMetaType::QString) {
+            //对枚举 / QString做处理 TODO
+            Q_ASSERT(false);
+        }
+        else if (!v.isValid()) {   //v非法，尝试重置或者晴空
+            if (isResettable()) {
+                return reset(object);
+            }
+            v = QVariant(t, nullptr);
+        }
+        else if (!v.convert(t)) {  //数据之间不可以互相转换
+            return false;
+        }
+    }
+
+    int status = -1;  //status之类的都被使用到
+    int flags = 0;
+    void *argv[] = { nullptr, &v, &status, &flags };
+    if (t == QMetaType::fromType<QVariant>()) {
+        argv[0] = &v;
+    }
+    else {
+        argv[0] = v.data();
+    }
+    if (priv(mobj->d.data)->flags & PropertyAccessInStaticMetaCall && mobj->d.static_metacall) {
+        mobj->d.static_metacall(object, QMetaObject::WriteProperty, data.index(mobj), argv);
+    }
+    else {
+        //TODO
+        Q_ASSERT(false);
+    }
+    return status;
+}
+
+bool QMetaProperty::reset(QObject *object) const
+{
+    if (!object || !mobj || !isResettable()) {
+        return false;
+    }
+    void *argv[] = {nullptr};
+    //zhaoyujie TODO PropertyAccessInStaticMetaCall是什么作用？
+    if (priv(mobj->d.data)->flags & PropertyAccessInStaticMetaCall && mobj->d.static_metacall) {
+        Q_ASSERT(false);
+        mobj->d.static_metacall(object, QMetaObject::ResetProperty, data.index(mobj), argv);
+    }
+    else {
+        Q_ASSERT(false);
+        QMetaObject::metacall(object, QMetaObject::ResetProperty, data.index(mobj) + mobj->propertyOffset(), argv);
+    }
+    return true;
+}
+
+QMetaMethod::MethodType QMetaMethod::methodType() const
+{
+    if (!mobj) {
+        return QMetaMethod::Method;
+    }
+    auto flag = data.flags() & MethodTypeMask >> 2;
+    return (QMetaMethod::MethodType)flag;
+}
+
+QByteArray QMetaMethod::methodSignature() const
+{
+    if (!mobj) {
+        return QByteArray();
+    }
+    return QMetaMethodPrivate::get(this)->signature();
+}
+
+QByteArray QMetaMethod::name() const
+{
+    if (!mobj) {
+        return QByteArray();
+    }
+    return QMetaMethodPrivate::get(this)->name();
+}
+
+int QMetaMethod::returnType() const
+{
+    return returnMetaType().id();
+}
+
+QMetaType QMetaMethod::returnMetaType() const
+{
+    if (!mobj || methodType() == QMetaMethod::Constructor) {
+        return QMetaType {};
+    }
+    auto mt = QMetaType(mobj->d.metaTypes[data.metaTypeOffset()]);
+    if (mt.id() == QMetaType::UnknownType) {
+        return QMetaType(QMetaMethodPrivate::get(this)->returnType());
+    }
+    else {
+        return mt;
     }
 }
 
-QMetaObject::Connection &QMetaObject::Connection::operator=(const QMetaObject::Connection &other)
+int QMetaMethod::parameterCount() const
 {
-    if (other.d_ptr != d_ptr) {
-        if (d_ptr) {
-            static_cast<QObjectPrivate::Connection *>(d_ptr)->deref();
-        }
-        d_ptr = other.d_ptr;
-        if (d_ptr) {
-            static_cast<QObjectPrivate::Connection *>(d_ptr)->ref();
-        }
+    if (!mobj) {
+        return 0;
     }
-    return *this;
+    return QMetaMethodPrivate::get(this)->parameterCount();
 }
 
-QMetaObject::Connection::~Connection()
+int QMetaMethod::parameterType(int index) const
 {
-    if (d_ptr) {
-        static_cast<QObjectPrivate::Connection *>(d_ptr)->deref();
+    return parameterMetaType(index).id();
+}
+
+QMetaType QMetaMethod::parameterMetaType(int index) const
+{
+    if (!mobj || index < 0) {
+        return {};
+    }
+    auto priv = QMetaMethodPrivate::get(this);
+    if (index >= priv->parameterCount()) {
+        return {};
+    }
+    //constructor没有返回参数
+    auto parameterOffset = index + (methodType() == QMetaMethod::Constructor ? 0 : 1);
+    auto mt = QMetaType(mobj->d.metaTypes[data.metaTypeOffset() + parameterOffset]);
+    if (mt.id() == QMetaType::UnknownType) {
+        return QMetaType(QMetaMethodPrivate::get(this)->parameterType(index));
+    }
+    else {
+        return mt;
     }
 }
 
@@ -910,20 +861,13 @@ QMetaMethod QMetaMethod::fromRelativeMethodIndex(const QMetaObject *mobj, int in
     return m;
 }
 
-QByteArray QMetaMethod::methodSignature() const
+QMetaMethod QMetaMethod::fromRelativeConstructorIndex(const QMetaObject *mobj, int index)
 {
-    if (!mobj) {
-        return QByteArray();
-    }
-    return QMetaMethodPrivate::get(this)->signature();
-}
-
-QMetaMethod::MethodType QMetaMethod::methodType() const
-{
-    if (!mobj) {
-        return QMetaMethod::Method;
-    }
-    return static_cast<QMetaMethod::MethodType >((data.flags() & MethodTypeMask) >> 2);
+    Q_ASSERT(index >= 0 && index < priv(mobj->d.data)->constructorCount);
+    QMetaMethod m;
+    m.mobj = mobj;
+    m.data = { mobj->d.data + priv(mobj->d.data)->constructorData + index * Data::Size };
+    return m;
 }
 
 int QMetaMethod::relativeMethodIndex() const
@@ -934,14 +878,6 @@ int QMetaMethod::relativeMethodIndex() const
     return QMetaMethodPrivate::get(this)->ownMethodIndex();
 }
 
-int QMetaMethod::parameterCount() const
-{
-    if (!mobj) {
-        return 0;
-    }
-    return data.argc();
-}
-
 int QMetaMethod::methodIndex() const
 {
     if (!mobj) {
@@ -950,11 +886,396 @@ int QMetaMethod::methodIndex() const
     return QMetaMethodPrivate::get(this)->ownMethodIndex() + mobj->methodOffset();
 }
 
-int QMetaMethod::attributes() const {
+int QMetaMethod::attributes() const
+{
     if (!mobj) {
         return false;
     }
     return data.flags() >> 4;
 }
+
+QByteArray QMetaMethodPrivate::signature() const
+{
+    QByteArray result;
+    result.reserve(256);
+    result += name();
+    result += '(';
+    QList<QByteArray> argTypes = parameterTypes();
+    for (int i = 0; i < argTypes.size(); ++i) {
+        if (i) {
+            result += ',';
+        }
+        result += argTypes.at(i);
+    }
+    result += ')';
+    return result;
+}
+
+int QMetaMethodPrivate::returnType() const
+{
+    return parameterType(-1);
+}
+
+int QMetaMethodPrivate::parameterType(int index) const
+{
+    return typeFromTypeInfo(mobj, parameterTypeInfo(index));
+}
+
+int QMetaMethodPrivate::parameterCount() const
+{
+    return data.argc();
+}
+
+QByteArray QMetaMethodPrivate::name() const
+{
+    return stringData(mobj, data.name());
+}
+
+int QMetaMethodPrivate::typesDataIndex() const
+{
+    return data.parameters();
+}
+
+int QMetaMethodPrivate::parametersDataIndex() const
+{
+    //参数索引
+    //typesDataIndex是返回值的索引位置，后面紧跟参数索引位置
+    return typesDataIndex() + 1;
+}
+
+QByteArray QMetaMethodPrivate::parameterTypeName(int index) const
+{
+    int paramsIndex = parametersDataIndex();
+    return typeNameFromTypeInfo(mobj, mobj->d.data[paramsIndex + index]);
+}
+
+QList<QByteArray> QMetaMethodPrivate::parameterTypes() const
+{
+    int argc = parameterCount();
+    QList<QByteArray> list;
+    list.reserve(argc);
+    int paramsIndex = parametersDataIndex();
+    for (int i = 0; i < argc; ++i) {
+        //paramsIndex+i 获取参数信息的索引
+        //typeNameFromTypeInfo函数获取索引位置的类型名称
+        list += typeNameFromTypeInfo(mobj, mobj->d.data[paramsIndex + i]);
+    }
+    return list;
+}
+
+int QMetaMethodPrivate::ownMethodIndex() const
+{
+    //通过地址来计算
+    //mobj->d.data + priv(mobj->d.data)->methodData 为 method的起始地址
+    return (data.d - (mobj->d.data + priv(mobj->d.data)->methodData)) / Data::Size;
+}
+
+inline void QMetaMethodPrivate::checkMethodMetaTypeConsistency(const QtPrivate::QMetaTypeInterface *iface, int index) const
+{
+    uint typeInfo = parameterTypeInfo(index);
+    QMetaType mt(iface);
+    if (iface) {
+        if ((typeInfo & IsUnresolvedType) == 0) {
+            Q_ASSERT(mt.id() == int(typeInfo & TypeNameIndexMask));
+        }
+        Q_ASSERT(mt.name());
+    } else {
+        // The iface can only be null for a parameter if that parameter is a
+        // const-ref to a forward-declared type. Since primitive types are
+        // never incomplete, we can assert it's not one of them.
+
+#define ASSERT_NOT_PRIMITIVE_TYPE(TYPE, METATYPEID, NAME)           \
+        Q_ASSERT(typeInfo != QMetaType::TYPE);
+        QT_FOR_EACH_STATIC_PRIMITIVE_NON_VOID_TYPE(ASSERT_NOT_PRIMITIVE_TYPE)
+#undef ASSERT_NOT_PRIMITIVE_TYPE
+
+        Q_ASSERT(typeInfo != QMetaType::QObjectStar);
+        // Prior to Qt 6.4 we failed to record void and void*
+        if (priv(mobj->d.data)->revision >= 11) {
+            Q_ASSERT(typeInfo != QMetaType::Void);
+            Q_ASSERT(typeInfo != QMetaType::VoidStar);
+        }
+    }
+}
+
+const QtPrivate::QMetaTypeInterface *QMetaMethodPrivate::returnMetaTypeInterface() const
+{
+    Q_ASSERT(priv(mobj->d.data)->revision >= 7);
+    if (methodType() == QMetaMethod::Constructor)
+        return nullptr;         // constructors don't have return types
+
+    const QtPrivate::QMetaTypeInterface *iface =  mobj->d.metaTypes[data.metaTypeOffset()];
+    checkMethodMetaTypeConsistency(iface, -1);
+    return iface;
+}
+
+const QtPrivate::QMetaTypeInterface * const *QMetaMethodPrivate::parameterMetaTypeInterfaces() const
+{
+    Q_ASSERT(priv(mobj->d.data)->revision >= 7);
+    int offset = (methodType() == QMetaMethod::Constructor ? 0 : 1);
+    const auto ifaces = &mobj->d.metaTypes[data.metaTypeOffset() + offset];
+
+    for (int i = 0; i < parameterCount(); ++i)
+        checkMethodMetaTypeConsistency(ifaces[i], i);
+
+    return ifaces;
+}
+
+uint QMetaMethodPrivate::parameterTypeInfo(int index) const
+{
+    Q_ASSERT(priv(mobj->d.data)->revision >= 7);
+    return mobj->d.data[parametersDataIndex() + index];
+}
+
+const char *QMetaProperty::name() const
+{
+    if (!mobj) {
+        return nullptr;
+    }
+    return rawStringData(mobj, data.name());
+}
+
+QMetaType QMetaProperty::metaType() const
+{
+    if (!mobj) {
+        return {};
+    }
+    return QMetaType(mobj->d.metaTypes[data.index(mobj)]);
+}
+
+int QMetaProperty::propertyIndex() const
+{
+    if (!mobj) {
+        return -1;
+    }
+    return data.index(mobj) + mobj->propertyOffset();
+}
+
+#define GET_PROPERTY_ABLE_FUNC(flag) \
+    if (!mobj) {            \
+        return false;       \
+    }                       \
+    return data.flags() & flag;\
+
+
+bool QMetaProperty::isWritable() const
+{
+    GET_PROPERTY_ABLE_FUNC(Writable)
+}
+
+bool QMetaProperty::isResettable() const
+{
+    GET_PROPERTY_ABLE_FUNC(Resettable)
+}
+
+bool QMetaProperty::isBindable() const
+{
+    GET_PROPERTY_ABLE_FUNC(Bindable)
+}
+
+bool QMetaProperty::isEnumType() const
+{
+    if (!mobj) {
+        return false;
+    }
+    return (data.flags() & EnumOrFlag) && menum.name();
+}
+
+const char *QMetaEnum::name() const
+{
+    if (!mobj) {
+        return nullptr;
+    }
+    return rawStringData(mobj, data.name());
+}
+
+const char *QMetaEnum::enumName() const
+{
+    if (!mobj) {
+        return nullptr;
+    }
+    return rawStringData(mobj, data.alias());
+}
+
+QMetaType QMetaEnum::metaType() const
+{
+    if (!mobj) {
+        return {};
+    }
+
+    const QMetaObjectPrivate *p = priv(mobj->d.data);
+    return QMetaType(mobj->d.metaTypes[data.index(mobj) + p->propertyCount]);
+}
+
+int QMetaEnum::keyCount() const
+{
+    if (!mobj) {
+        return 0;
+    }
+    return data.keyCount();
+}
+
+const char *QMetaEnum::key(int index) const
+{
+    if (!mobj) {
+        return nullptr;
+    }
+    if (index >= 0 && index < int(data.keyCount())) {
+        return rawStringData(mobj, mobj->d.data[data.data() + 2 * index]);
+    }
+    return nullptr;
+}
+
+int QMetaEnum::value(int index) const
+{
+    if (!mobj) {
+        return 0;
+    }
+    if (index >= 0 && index < int(data.keyCount())) {
+        return mobj->d.data[data.data() + 2 * index + 1];
+    }
+    return -1;
+}
+
+bool QMetaEnum::isFlag() const
+{
+    if (!mobj) {
+        return false;
+    }
+    return data.flags() & EnumIsFlag;
+}
+
+//使用enum class注册的枚举(作用域枚举)
+bool QMetaEnum::isScoped() const
+{
+    if (!mobj) {
+        return false;
+    }
+    return data.flags() & EnumIsScoped;
+}
+
+const char *QMetaEnum::scope() const
+{
+    return mobj ? objectClassName(mobj) : nullptr;
+}
+
+int QMetaEnum::keyToValue(const char *key, bool *ok) const
+{
+    if (ok != nullptr) {
+        *ok = false;
+    }
+    if (!mobj || !key) {
+        return -1;
+    }
+    uint scope = 0;
+    const char *qualified_key = key;
+    const char *s = key + qstrlen(key);
+    while (s > key && *s != ':') {
+        --s;
+    }
+    if (s > key && *(s - 1) == ':') {
+        scope = s - key - 1;
+        key += scope + 2;
+    }
+    for (int i = 0; i < int (data.keyCount()); ++i) {
+        const QByteArray className = stringData(mobj, priv(mobj->d.data)->className);
+        if ((!scope || (className.size() == int(scope) && strncmp(qualified_key, className.constData(), scope) == 0))
+            && strcmp(key, rawStringData(mobj, mobj->d.data[data.data() + 2*i])) == 0) {
+            if (ok != nullptr)
+                *ok = true;
+            return mobj->d.data[data.data() + 2 * i + 1];
+        }
+    }
+    return -1;
+}
+
+const char *QMetaEnum::valueToKey(int value) const
+{
+    if (!mobj) {
+        return nullptr;
+    }
+    for (int i = 0; i < int(data.keyCount()); ++i) {
+        if (value == (int)mobj->d.data[data.data() + 2 * i + 1]) {
+            return rawStringData(mobj, mobj->d.data[data.data() + 2 * i]);
+        }
+    }
+    return nullptr;
+}
+
+static auto parse_scope(QLatin1StringView qualifiedKey) noexcept
+{
+    struct R {
+        std::optional<QLatin1StringView> scope;
+        QLatin1StringView key;
+    };
+    const auto scopePos = qualifiedKey.lastIndexOf("::"_L1);
+    if (scopePos < 0)
+        return R{std::nullopt, qualifiedKey};
+    else
+        return R{qualifiedKey.first(scopePos), qualifiedKey.sliced(scopePos + 2)};
+}
+
+int QMetaEnum::keysToValue(const char *keys, bool *ok)
+{
+    Q_ASSERT(false);
+    return 0;
+}
+
+namespace
+{
+    template <typename String, typename Container, typename Separator>
+    void join_reversed(String &s, const Container &c, Separator sep)
+    {
+        if (c.empty()) {
+            return;
+        }
+        qsizetype len = qsizetype(c.size()) - 1; // N - 1 separators
+        for (auto &e : c) {
+            len += qsizetype(e.size()); // N parts
+        }
+        s.reserve(len);
+        bool first = true;
+        for (auto rit = c.rbegin(), rend = c.rend(); rit != rend; ++rit) {
+            const auto &e = *rit;
+            if (!first) {
+                s.append(sep);
+            }
+            first = false;
+            s.append(e.data(), e.size());
+        }
+    }
+} // unnamed namespace
+
+QByteArray QMetaEnum::valueToKeys(int value) const
+{
+    QByteArray keys;
+    if (!mobj) {
+        return keys;
+    }
+    QVarLengthArray<QLatin1StringView, sizeof(int) * CHAR_BIT> parts;
+    int v = value;
+    for (int i = data.keyCount() - 1; i >= 0; --i) {
+        int k = mobj->d.data[data.data() + 2 * i + 1];
+        if ((k != 0 && (v & k) == k) || (k == value)) {
+            v = v & ~k;
+            parts.push_back(stringDataView(mobj, mobj->d.data[data.data() + 2 * i]));
+        }
+    }
+    join_reversed(keys, parts, '|');;
+    return keys;
+}
+
+QMetaEnum::QMetaEnum(const QMetaObject *mobj, int index)
+    : mobj(mobj), data({ mobj->d.data + priv(mobj->d.data)->enumeratorData + index * Data::Size })
+{
+    Q_ASSERT(index >= 0 && index < priv(mobj->d.data)->enumeratorCount);
+}
+
+int QMetaEnum::Data::index(const QMetaObject *mobj) const
+{
+    return (d - mobj->d.data - priv(mobj->d.data)->enumeratorData) / Size;
+}
+
+#undef GET_PROPERTY_ABLE_FUNC
 
 QT_END_NAMESPACE

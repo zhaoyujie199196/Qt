@@ -38,6 +38,7 @@ public:
     //const char *的构造函数是浅拷贝
     constexpr inline explicit QLatin1String(const char *s) noexcept : m_size(s ? qsizetype(strlen(s)) : 0), m_data(s) {}
     constexpr inline explicit QLatin1String(const char *s, qsizetype sz) noexcept : m_size(sz), m_data(s) {}
+    constexpr inline explicit QLatin1String(const char *f, const char *l) : QLatin1String(f, qsizetype(l - f)) {}
 
     constexpr const char *latin1() const noexcept {return m_data;}
     constexpr qsizetype size() const noexcept {return m_size;}
@@ -92,6 +93,13 @@ public:
         return QLatin1String(m_data + pos, n);
     }
 
+    constexpr QLatin1String first(qsizetype n) const {
+        verify(n); return QLatin1String{ m_data, n };
+    }
+    constexpr QLatin1String last(qsizetype n) const {
+        verify(n); return QLatin1String{ m_data + size() - n, n };
+    }
+
     //比较
     int compare(QLatin1String other, Qt::CaseSensitivity cs = Qt::CaseSensitive) const noexcept;
     //没有调用其他函数，可以在编译期间计算出来，所以使用constexpr
@@ -103,6 +111,28 @@ public:
     constexpr bool startsWith(QChar c) const noexcept;
     bool startsWith(QChar c, Qt::CaseSensitivity cs) const noexcept;
     bool startsWith(QLatin1String s, Qt::CaseSensitivity cs) const noexcept;
+
+    qsizetype indexOf(const QStringView ss, qsizetype from = 0, Qt::CaseSensitivity cs = Qt::CaseSensitive) const noexcept
+    { return QtPrivate::findString(*this, from, ss, cs); }
+    qsizetype indexOf(const QLatin1String &s, qsizetype from = 0, Qt::CaseSensitivity cs = Qt::CaseSensitive) const noexcept
+    { return QtPrivate::findString(*this, from, s, cs); }
+    qsizetype indexOf(QChar c, qsizetype from = 0, Qt::CaseSensitivity cs = Qt::CaseSensitive) const noexcept
+    { return QtPrivate::findString(*this, from, QStringView(&c, 1), cs); }
+
+    [[nodiscard]] qsizetype lastIndexOf(QStringView s, Qt::CaseSensitivity cs = Qt::CaseSensitive) const noexcept
+    { return lastIndexOf(s, size(), cs); }
+    [[nodiscard]] qsizetype lastIndexOf(QStringView s, qsizetype from, Qt::CaseSensitivity cs = Qt::CaseSensitive) const noexcept
+    { return QtPrivate::lastIndexOf(*this, from, s, cs); }
+    [[nodiscard]] qsizetype lastIndexOf(QLatin1String s, Qt::CaseSensitivity cs = Qt::CaseSensitive) const noexcept
+    { return lastIndexOf(s, size(), cs); }
+    [[nodiscard]] qsizetype lastIndexOf(QLatin1String s, qsizetype from, Qt::CaseSensitivity cs = Qt::CaseSensitive) const noexcept
+    { return QtPrivate::lastIndexOf(*this, from, s, cs); }
+    [[nodiscard]] qsizetype lastIndexOf(QChar c, Qt::CaseSensitivity cs = Qt::CaseSensitive) const noexcept
+    { return lastIndexOf(c, -1, cs); }
+    [[nodiscard]] qsizetype lastIndexOf(QChar c, qsizetype from, Qt::CaseSensitivity cs = Qt::CaseSensitive) const noexcept
+    { return QtPrivate::lastIndexOf(*this, from, QStringView(&c, 1), cs); }
+
+    QLatin1String trimmed() const noexcept { return QtPrivate::trimmed(*this); }
 
     //重载比较操作符。加了friend等于operator==不是类的成员函数。如果不加friend,只能接受一个参数：operator==(QLatin1String s1)
     // QLatin1String <> QLatin1String
@@ -195,7 +225,12 @@ private:
     const char *m_data; //这里将m_data定义成const，表明QLatin1String不可更改
 };
 
+using QLatin1StringView = QLatin1String;
 
+constexpr inline QLatin1StringView operator""_L1(const char *str, size_t size) noexcept
+{
+    return QLatin1String(str, qsizetype(size));
+}
 
 Q_DECLARE_TYPEINFO(QLatin1String, Q_RELOCATABLE_TYPE)
 

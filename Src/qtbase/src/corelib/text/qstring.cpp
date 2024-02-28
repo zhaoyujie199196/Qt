@@ -1846,6 +1846,22 @@ bool QtPrivate::isLatin1(QStringView s) noexcept {
     return true;
 }
 
+namespace {
+    template <typename StringView>
+    StringView qt_trimmed(StringView s) noexcept
+    {
+        auto begin = s.begin();
+        auto end = s.end();
+        QStringAlgorithms<const StringView>::trimmed_helper_positions(begin, end);
+        return StringView{ begin, end };
+    }
+};
+
+QLatin1String QtPrivate::trimmed(QLatin1String s) noexcept
+{
+    return qt_trimmed(s);
+}
+
 template <typename Haystack>
 static inline qsizetype qLastIndexOf(Haystack haystack, QChar needle,
                                      qsizetype from, Qt::CaseSensitivity cs) noexcept

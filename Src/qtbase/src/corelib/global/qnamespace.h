@@ -107,6 +107,13 @@ namespace Qt {
     };
     Q_DECLARE_FLAGS(FindChildOptions, FindChildOption)
 
+    //Event的优先级
+    enum EventPriority {
+        HighEventPriority = 1,
+        NormalEventPriority = 0,
+        LowEventPriority = -1
+    };
+
 
     typedef void * HANDLE;
 }

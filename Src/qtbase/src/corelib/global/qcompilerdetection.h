@@ -539,4 +539,26 @@
 #  define Q_DECL_DEPRECATED
 #endif
 
+#ifdef __cpp_constinit
+# if defined(Q_CC_MSVC) && !defined(Q_CC_CLANG)
+// https://developercommunity.visualstudio.com/t/C:-constinit-for-an-optional-fails-if-/1406069
+#  define Q_CONSTINIT
+# else
+#  define Q_CONSTINIT constinit
+# endif
+#elif defined(__has_cpp_attribute) && __has_cpp_attribute(clang::require_constant_initialization)
+# define Q_CONSTINIT [[clang::require_constant_initialization]]
+#elif defined(Q_CC_GNU_ONLY) && Q_CC_GNU >= 1000
+# define Q_CONSTINIT __constinit
+#else
+# define Q_CONSTINIT
+#endif
+
+#ifndef Q_OUTOFLINE_TEMPLATE
+#  define Q_OUTOFLINE_TEMPLATE
+#endif
+#ifndef Q_INLINE_TEMPLATE
+#  define Q_INLINE_TEMPLATE inline
+#endif
+
 #endif //QCOMPILERDETECTION_H

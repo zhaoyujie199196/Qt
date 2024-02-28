@@ -288,6 +288,14 @@ inline void qSwap(T &value1, T &value2)
     swap(value1, value2);
 }
 
+template <typename T>
+constexpr inline void qt_ptr_swap(T* &lhs, T* &rhs) noexcept
+{
+    T *tmp = lhs;
+    lhs = rhs;
+    rhs = tmp;
+}
+
 void qt_check_pointer(const char *, int) noexcept;
 
 #define Q_CHECK_PTR(p) do { if (!(p)) qt_check_pointer(__FILE__, __LINE__); } while(false)

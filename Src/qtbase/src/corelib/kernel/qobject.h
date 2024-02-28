@@ -10,12 +10,14 @@
 #include <map>
 #include <string>
 #include <vector>
+#include "QtCore/qscopedpointer.h"
 #include <QtCore/qvariant.h>
 #include <QtCore/qlist.h>
 #include <QtCore/qproperty.h>
 #include "qtmetamacros.h"
 #include "qobjectdefs_impl.h"
 #include "qbindingstorage.h"
+#include "qobject_impl.h"
 
 QT_BEGIN_NAMESPACE
 
@@ -24,261 +26,245 @@ QT_BEGIN_NAMESPACE
         this->functionName();                     \
     });
 
+class QThread;
+class QObjectPrivate;
 class QEvent;
 class QTimerEvent;
 class QChildEvent;
-class QObjectPrivate;
-class QObject;
-class QThread;
-
+class QMetaMethod;
 struct QDynamicMetaObjectData;
 
 typedef QList<QObject *> QObjectList;
 
-Q_CORE_EXPORT void qt_qFindChildren_helper(const QObject *parent, const QString &name,
-                                           const QMetaObject &mo, QList<void *> *list, Qt::FindChildOptions options);
+Q_CORE_EXPORT void qt_qFindChildren_helper(const QObject *parent, const QString &name, const QMetaObject &mo, QList<void *> *list, Qt::FindChildOptions);
+Q_CORE_EXPORT void qt_qFindChildren_helper(const QObject *parent, const QMetaObject &mo, QList<void *> *list, Qt::FindChildOptions options);
+//Q_CORE_EXPORT void qt_qFindChildren_helper(const QObject *parent, const QRegularExpression &re, const QMetaObject &mo, QList<void *> *list, Qt::FindChildOptions options);
+Q_CORE_EXPORT QObject *qt_qFindChild_helper(const QObject *parent, const QString &name, const QMetaObject &mo, Qt::FindChildOptions options);
 
 class Q_CORE_EXPORT QObjectData
 {
     Q_DISABLE_COPY(QObjectData)
+
 public:
     QObjectData() = default;
-    virtual ~QObjectData() {}
-    QObject *q_ptr;  //q指针，objectData的owner指针
-    QObject *parent; //父亲指针
-    QObjectList children;  //子对象列表
+    virtual ~QObjectData() = 0;  //需要被继承重写
+    QObject *q_ptr;  //q指针
+    QObject *parent; //QObject的父指针
+    QObjectList children; //QObject的子
 
-    uint isWidget : 1;  //是否是widget
+    uint isWidget : 1;   //是否是widget
     uint blockSig : 1;   //阻塞信号
-    uint wasDeleted: 1;  //是否已经被删除
+    uint wasDeleted : 1;  //被删除了
     uint isDeletingChildren : 1;  //正在删除子
-    uint sendChildEvents: 1;
-    uint receiveChildEvents: 1;
-    uint isWindow: 1;   //for QWindow
-    uint deleteLaterCalled : 1;  //调用了deleteLater
-    uint unused: 24;
-    int postedEvents;
-    QDynamicMetaObjectData *metaObject;
-    QBindingStorage bindingStorage;  //zhaoyujie TODO
+    uint sendChildEvents : 1;  //TODO
+    uint receiveChildEvents : 1;  //TODO
+    uint isWindow : 1;  //QWindow
+    uint deleteLaterCalled; //调用了deleteLater
+    uint isQuickItem : 1;
+    uint willBeWidget; //TODO
+    uint wasWidget : 1;  //TODO
+    uint unused: 21;
+//    QAtomicInt postedEvents;  //TODO
+    QDynamicMetaObjectData *metaObject; //TODO
+    QBindingStorage bindingStorage;  //TODO
+
     QMetaObject *dynamicMetaObject() const;
 
+    enum { CheckForParentChildLoopsWarnDepth = 4096 };
 };
 
-class QObject {
+class Q_CORE_EXPORT QObject
+{
     Q_OBJECT
-    //声明private指针
     Q_DECLARE_PRIVATE(QObject)
-    Q_PROPERTY(QString objectName READ objectName WRITE setObjectName NOTIFY objectNameChanged BINDABLE bindableObjectName)
+
+    Q_PROPERTY(QString objectName READ objectName WRITE setObjectName Notify objectNameChanged BINDABLE bindableObjectName)
+
 public:
     friend struct QMetaObject;
     friend struct QMetaObjectPrivate;
+    friend class QCoreApplication;
+    friend class QCoreApplicationPrivate;
+    friend class QThreadData;
 
+    //TODO 需要删除的测试方法
     typedef std::function<void()> InvokeMethod;
     typedef std::vector<std::pair<std::string, InvokeMethod>> InvokeMethodMap;
+    const InvokeMethodMap &getInvokeMethodMap() const { return m_invokeMethodMap; }
+    InvokeMethodMap m_invokeMethodMap;
+    virtual void registerInvokeMethods() {}
+    void registerInvokeMethod(const std::string &key, const InvokeMethod &func)
+    {
+        m_invokeMethodMap.push_back({key, std::move(func)});
+    }
 
     Q_INVOKABLE explicit QObject(QObject *parent = nullptr);
     virtual ~QObject();
 
+    //父子关系相关
+    inline QObject *parent() const { return d_ptr->parent; }
+    void setParent(QObject *parent);
+    inline const QObjectList &children() const { return d_ptr->children; }
+    inline bool inherits(const char *classname) const
+    {
+        return const_cast<QObject *>(this)->qt_metacast(classname) != nullptr;
+    }
+    //查找child， 调用格式：auto c = obj->findChild<Base *>(); 所以需要remove_pointer
+    template <typename T>
+    inline T findChild(const QString &name = QString(), Qt::FindChildOptions options = Qt::FindChildrenRecursively) const
+    {
+        typedef typename std::remove_cv<typename std::remove_pointer<T>::type>::type ObjType;
+        return static_cast<T>(qt_qFindChild_helper(this, name, ObjType::staticMetaObject, options));
+    }
+    template <typename T>
+    inline QList<T> findChildren(const QString &name, Qt::FindChildOptions options = Qt::FindChildrenRecursively) const
+    {
+        typedef typename std::remove_cv<typename std::remove_pointer<T>::type>::type ObjType;
+        QList<T> list;
+        qt_qFindChildren_helper(this, name, ObjType::staticMetaObject, reinterpret_cast<QList<void *> *>(&list), options);
+        return list;
+    }
+    template <typename T>
+    QList<T> findChildren(Qt::FindChildOptions options = Qt::FindChildrenRecursively) const
+    {
+        typedef typename std::remove_cv<typename std::remove_pointer<T>::type>::type ObjType;
+        QList<T> list;
+        qt_qFindChildren_helper(this, ObjType::staticMetaObject, reinterpret_cast<QList<void *> *>(&list), options);
+        return list;
+    }
+//    template<typename T>
+//    inline QList<T> findChildren(const QRegularExpression &re, Qt::FindChildOptions options = Qt::FindChildrenRecursively) const
+//    {
+//        typedef typename std::remove_cv<typename std::remove_pointer<T>::type>::type ObjType;
+//        QList<T> list;
+//        qt_qFindChildren_helper(this, re, ObjType::staticMetaObject,
+//                                reinterpret_cast<QList<void *> *>(&list), options);
+//        return list;
+//    }
+
+    //objectName相关
     QString objectName() const;
-    void setObjectName(const QString &name);
+    Q_WEAK_OVERLOAD void setObjectName(const QString &name) { doSetObjectName(name); }
+    void setObjectName(QStringView name);
     QBindable<QString> bindableObjectName();
 
+    //property相关
+    bool setProperty(const char *name, const QVariant &value);
+    inline bool setProperty(const char *name, QVariant &&value);
+    QVariant property(const char *name) const;
+    QList<QByteArray> dynamicPropertyNames() const;
+
+    //动态绑定
+    QBindingStorage *bindingStorage() { return &d_ptr->bindingStorage; }
+    const QBindingStorage *bindingStorage() const { return &d_ptr->bindingStorage; }
+
+    //UI标记
+    inline bool isWidgetType() const { return d_ptr->isWidget; }
+    inline bool isWindowType() const { return d_ptr->isWindow; }
+    inline bool isQuickItemType() const { return d_ptr->isQuickItem; }
+
+    //信号阻塞
+    inline bool signalsBlocked() const noexcept { return d_ptr->blockSig; }
+    bool blockSignals(bool b) noexcept ;
+
+    //线程相关
+    QThread *thread() const;
+    void moveToThread(QThread *targetThread);
+
+    //timer相关 TODO
+//    int startTimer(int interval, Qt::TimerType timerType = Qt::CoarseTimer);
+//    int startTimer(std::chrono::milliseconds time, Qt::TimerType timerType = Qt::CoarseTimer);
+//    void killTimer(int id);
+
+    //event相关
+    void installEventFilter(QObject *filterObj);
+    void removeEventFilter(QObject *obj);
     virtual bool event(QEvent *event);
     virtual bool eventFilter(QObject *watched, QEvent *event);
 
-    //翻译
-    static QString tr(const char *sourceText, const char * = nullptr, int = -1) {
-        //zhaoyujie TODO windows怎么弄的
-#if defined(Q_OS_WIN)
-        Q_ASSERT(false);
-#endif
-        return QString::fromUtf8(sourceText);
-    }
+    //connect相关
+    static QMetaObject::Connection connect(const QObject *sender, const char *signal, const QObject *receiver, const char *member, Qt::ConnectionType type = Qt::AutoConnection);
+    static QMetaObject::Connection connect(const QObject *sender, const QMetaMethod &signal, const QObject *receiver, const QMetaMethod &method, Qt::ConnectionType type = Qt::AutoConnection);
+    QMetaObject::Connection connect(const QObject *sender, const char *signal, const char *member, Qt::ConnectionType type = Qt::AutoConnection) const;
 
-    //property系统
-    //通过name设置属性
-    bool setProperty(const char *name, const QVariant &value);
-    QVariant property(const char *name) const;
-    QBindingStorage *bindingStorage() const { return &d_ptr->bindingStorage; }
-
-    //connection系统
-    //使用字符串标记信号槽，字符串对应到moc系统
-    static QMetaObject::Connection connect(const QObject *sender, const char *signal,
-                                           const QObject *receiver, const char *member,
-                                           Qt::ConnectionType = Qt::AutoConnection);
-    static QMetaObject::Connection connect(const QObject *sender, const QMetaMethod &signal,
-                                           const QObject *receiver, const QMetaMethod &method,
-                                           Qt::ConnectionType type = Qt::AutoConnection);
-    QMetaObject::Connection connect(const QObject *sender, const char *signal,
-                                    const char *member, Qt::ConnectionType type = Qt::AutoConnection) const;
-
-    //FunctionPointer接受函数指针，适配connect(obj, &Obj::sig1, obj, &Obj::func)之类的写法
     template <typename Func1, typename Func2>
     static inline QMetaObject::Connection connect(const typename QtPrivate::FunctionPointer<Func1>::Object *sender, Func1 signal,
-                                                  const typename QtPrivate::FunctionPointer<Func2>::Object *receiver, Func2 slot,
-                                                  Qt::ConnectionType type = Qt::AutoConnection) {
+                                                  const typename QtPrivate::ContextTypeForFunctor<Func2>::ContextType *context, Func2 &&slot,
+                                                  Qt::ConnectionType type = Qt::AutoConnection)
+    {
         typedef QtPrivate::FunctionPointer<Func1> SignalType;
-        typedef QtPrivate::FunctionPointer<Func2> SlotType;
-        //需要有Q_Object宏
-        static_assert(QtPrivate::HasQ_OBJECT_Macro<typename SignalType::Object>::Value);
-        //参数个数要匹配
-        static_assert(int(SignalType::ArgumentCount) >= int(SlotType::ArgumentCount));
-        //参数类型要匹配
-        static_assert(QtPrivate::CheckCompatibleArguments<typename SignalType::Arguments, typename SlotType::Arguments>::value);
-        //返回值要匹配
-        static_assert(QtPrivate::AreArgumentsCompatible<typename SlotType::ReturnType, typename SignalType::ReturnType>::value);
+        typedef QtPrivate::FunctionPointer<std::decay_t<Func2>> SlotType;
 
+        if constexpr (SlotType::ArgumentCount != -1) {         //非仿函数和lambda
+           static_assert(QtPrivate::AreArgumentsCompatible<typename SlotType::ReturnType, typename SignalType::ReturnType>::value);
+        }
+        else {
+            constexpr int FunctorArgumentCount = QtPrivate::ComputeFunctorArgumentCount<std::decay_t<Func2>, typename SignalType::Arguments>::Value;
+            constexpr int SlotArgumentCount = (FunctorArgumentCount >= 0) ? FunctorArgumentCount : 0;
+            //参数不匹配这里会编译报错
+            typedef typename QtPrivate::FunctorReturnType<std::decay_t<Func2>, typename QtPrivate::List_Left<typename SignalType::Arguments, SlotArgumentCount>::Value>::Value SlotReturnType;
+            static_assert(QtPrivate::AreArgumentsCompatible<SlotReturnType, typename SignalType::ReturnType >::Value);
+        }
+
+        //信号发射者里有Q_OBJECT宏
+        static_assert(QtPrivate::HasQ_OBJECT_Macro<typename SignalType::Object>::Value);
+
+        static_assert(int(SignalType::ArgumentCount) >= SlotType::ArgumentCount);
+
+        //信号的参数类型
         const int *types = nullptr;
         if (type == Qt::QueuedConnection || type == Qt::BlockingQueuedConnection) {
-            Q_ASSERT(false);
-//            types = QtPrivate::ConnectionTypes<typename SignalType::Arguments>::types();
+            types = QtPrivate::ConnectionTypes<typename SignalType::Arguments>::types();
         }
-        //生成slotObject，QSlotObject适配obj::func1形式
-        auto slotObject = new QtPrivate::QSlotObject<Func2,
-                                                    typename QtPrivate::List_Left<typename SignalType::Arguments, SlotType::ArgumentCount>::Value,
-                                                    typename SignalType::ReturnType>(slot);
-        return connectImpl(sender, reinterpret_cast<void **>(&signal),
-                           receiver, reinterpret_cast<void **>(&slot),
-                           slotObject,
+
+        void **pSlot = nullptr;
+        //成员函数的地址放到pSlot中
+        if constexpr (std::is_member_function_pointer_v<std::decay_t<Func2>>) {
+            pSlot = const_cast<void **>(reinterpret_cast<void *const *>(&slot));
+        }
+
+        return connectImpl(sender, reinterpret_cast<void **>(&signal), context, pSlot,
+                           QtPrivate::makeCallableObject<Func1>(std::forward<Func2>(slot)),
                            type, types, &SignalType::Object::staticMetaObject);
     }
 
-
     template <typename Func1, typename Func2>
-    static inline typename std::enable_if<int(QtPrivate::FunctionPointer<Func2>::ArgumentCount) >= 0, QMetaObject::Connection>::type
-            connect(const typename QtPrivate::FunctionPointer<Func1>::Object *sender, Func1 signal, Func2 slot)
+    static inline QMetaObject::Connection connect(const typename QtPrivate::FunctionPointer<Func1>::Object *sender, Func1 signal, Func2 &&slot)
     {
-        //connect(sender, &signal, &slot)形式，slot为全局函数，receiver设置为sender为了控制生命周期
-        return connect(sender, signal, sender, slot, Qt::DirectConnection);
+        return connect(sender, signal, sender, std::forward<Func2>(slot), Qt::DirectConnection);
     }
 
-    //非类成员的函数指针
-    template <typename Func1, typename Func2>
-    static inline typename std::enable_if<int(QtPrivate::FunctionPointer<Func2>::ArgumentCount) >= 0 &&
-                                          !QtPrivate::FunctionPointer<Func2>::IsPointerToMemberFunction, QMetaObject::Connection>::type
-             connect(const typename QtPrivate::FunctionPointer<Func1>::Object *sender, Func1 signal, const QObject *context, Func2 slot, Qt::ConnectionType type = Qt::AutoConnection)
-    {
-        typedef QtPrivate::FunctionPointer<Func1> SignalType;
-        typedef QtPrivate::FunctionPointer<Func2> SlotType;
 
-        static_assert(QtPrivate::HasQ_OBJECT_Macro<typename SignalType::Object>::Value, "No Q_OBJECT in the class with the signal");
-
-        static_assert(int(SignalType::ArgumentCount) >= int(SlotType::ArgumentCount), "The slot requires more arguments than the signal provides.");
-
-        static_assert((QtPrivate::CheckCompatibleArguments<typename SignalType::Arguments, typename SlotType::Arguments>::value),
-                "Signal and slot arguments are not compatible.");
-        static_assert((QtPrivate::AreArgumentsCompatible<typename SignalType::ReturnType, typename SlotType::Arguments>::value),
-                "Return type of the slot is not compatible with the return type of the signal");
-
-        const int *types = nullptr;
-        if (type == Qt::QueuedConnection || type == Qt::BlockingQueuedConnection) {
-            Q_ASSERT(false);
-            return QMetaObject::Connection();
-        }
-        auto slotObj = new QtPrivate::QStaticSlotObject<Func2,
-                                                        typename QtPrivate::List_Left<typename SignalType::Arguments, SlotType::ArgumentCount>::Value,
-                                                        typename SignalType::ReturnType>(slot);
-        return connectImpl(sender, reinterpret_cast<void **>(&signal), context, nullptr, slotObj, type, types, &SignalType::Object::staticMetaObject);
-    }
-
-    //ArgumentCount == -1 为仿函数或者lambda表达式，会走到下面的含有context的函数
-    template <typename Func1, typename Func2>
-    static inline typename std::enable_if<QtPrivate::FunctionPointer<Func2>::ArgumentCount == -1, QMetaObject::Connection>::type
-            connect(const typename QtPrivate::FunctionPointer<Func1>::Object *sender, Func1 signal, Func2 slot)
-    {
-        return connect(sender, signal, sender, std::move(slot), Qt::DirectConnection);
-    }
-
-    //仿函数或者lambda表达式，context用来控制生命周期
-    template <typename Func1, typename Func2>
-    static inline typename std::enable_if<QtPrivate::FunctionPointer<Func2>::ArgumentCount == -1, QMetaObject::Connection>::type
-            connect(const typename QtPrivate::FunctionPointer<Func1>::Object *sender, Func1 signal, const QObject *context, Func2 slot, Qt::ConnectionType type = Qt::AutoConnection)
-    {
-        typedef QtPrivate::FunctionPointer<Func1> SignalType;
-        //计算函子的参数个数
-        const int FunctorArgumentCount = QtPrivate::ComputeFunctorArgumentCount<Func2, typename SignalType::Arguments>::Value;
-        static_assert(FunctorArgumentCount >= 0, "Signal and slot arguments are not compatible.");
-
-        const int SlotArgumentCount = (FunctorArgumentCount >= 0) ? FunctorArgumentCount : 0;
-        //仿函数的返回类型
-        typedef typename QtPrivate::FunctorReturnType<Func2, typename QtPrivate::List_Left<typename SignalType::Arguments, SlotArgumentCount>::Value>::Value SlotReturnType;
-
-        static_assert(QtPrivate::AreArgumentsCompatible<SlotReturnType, typename SignalType::ReturnType >::value, "Return type of the slot is not compatible with the return type of the signal.");
-
-        static_assert(QtPrivate::HasQ_OBJECT_Macro<typename SignalType::Object>::Value, "No Q_OBJECT in the class with the signal");
-
-        const int *types = nullptr;
-        if (type == Qt::QueuedConnection || type == Qt::BlockingQueuedConnection) {
-            Q_ASSERT(false);
-            return QMetaObject::Connection();
-        }
-        auto slotObj = new QtPrivate::QFunctorSlotObject<Func2, SlotArgumentCount,
-                                                         typename QtPrivate::List_Left<typename SignalType::Arguments, SlotArgumentCount>::Value,
-                                                         typename SignalType::ReturnType>(std::move(slot));
-        return connectImpl(sender, reinterpret_cast<void **>(&signal), context, nullptr, slotObj, type, types, &SignalType::Object::staticMetaObject);
-    }
-
-    static bool disconnect(const QObject *sender, const char *signal,
-                           const QObject *receiver, const char *member);
-    static bool disconnect(const QObject *sender, const QMetaMethod &signal,
-                           const QObject *receiver, const QMetaMethod &method);
-    inline bool disconnect(const char *signal = nullptr,
-                           const QObject *receiver = nullptr, const char *member = nullptr) const
-    {
-        return disconnect(this, signal, receiver, member);
-    }
-    inline bool disconnect(QObject *receiver, const char *member = nullptr) const
-    {
-        return disconnect(this, nullptr, receiver, member);
-    }
+    //disconnect相关
+    static bool disconnect(const QObject *sender, const char *signal, const QObject *receiver, const char *member);
+    static bool disconnect(const QObject *sender, const QMetaMethod &signal, const QObject *receiver, const QMetaMethod &member);
+    bool disconnect(const char *signal, const QObject *receiver = nullptr, const char *member = nullptr) const;
     static bool disconnect(const QMetaObject::Connection &);
 
     template <typename Func1, typename Func2>
     static inline bool disconnect(const typename QtPrivate::FunctionPointer<Func1>::Object *sender, Func1 signal,
-                             const typename QtPrivate::FunctionPointer<Func2>::Object *receiver, Func2 slot)
+                                  const typename QtPrivate::FunctionPointer<Func2>::Object *receiver, Func2 slot)
     {
         typedef QtPrivate::FunctionPointer<Func1> SignalType;
         typedef QtPrivate::FunctionPointer<Func2> SlotType;
-        static_assert(QtPrivate::HasQ_OBJECT_Macro<typename SignalType::Object>::Value, "No Q_OBJECT in the class with the signal");
-        static_assert(QtPrivate::CheckCompatibleArguments<typename SignalType::Arguments, typename SlotType::Arguments>::value, "Signal and slot arguments are not compatible.");
 
-        return disconnectImpl(sender, reinterpret_cast<void **>(&signal), receiver, reinterpret_cast<void **>(&slot), &SignalType::Object::staticMetaObject);
+        static_assert(QtPrivate::HasQ_OBJECT_Macro<typename SignalType::Object>::Value);
+        static_assert(QtPrivate::CheckCompatibleArguments<typename SignalType::Arguments, typename SlotType::Arguments>::value);
+
+        return disconnectImpl(sender, reinterpret_cast<void **>(&signal),
+                              receiver, reinterpret_cast<void **>(&slot), &SignalType::Object::staticMetaObject);
     }
 
     template <typename Func1>
     static inline bool disconnect(const typename QtPrivate::FunctionPointer<Func1>::Object *sender, Func1 signal,
-                                  const QObject *receiver, void **zero) {
+                                  const QObject *receiver, void **zero)
+    {
         Q_ASSERT(!zero);
         typedef QtPrivate::FunctionPointer<Func1> SignalType;
         return disconnectImpl(sender, reinterpret_cast<void **>(&signal), receiver, zero, &SignalType::Object::staticMetaObject);
     }
 
-    inline QObject *parent() const { return d_ptr->parent; }
-    inline bool inherits(const char *classname) const {
-        Q_ASSERT(false);  //zhaoyujie TODO 这里的逻辑是什么意思？不能用来判断父？只能做精准判断？
-        return const_cast<QObject *>(this)->qt_metacast(classname) != nullptr;
-    }
-
-    template <typename T>
-    inline QList<T> findChildren(const QString &aName = QString(), Qt::FindChildOption options = Qt::FindChildrenRecursively) const {
-        typedef typename std::remove_cv<typename std::remove_pointer<T>::type>::type ObjType;
-        QList<T> list;
-        qt_qFindChildren_helper(this, aName, ObjType::staticMetaObject, reinterpret_cast<QList<void *> *>(&list), options);
-        return list;
-    }
-
-
-    const InvokeMethodMap &getInvokeMethodMap() const { return m_invokeMethodMap; }
-    inline const QObjectList &children() const { return d_ptr->children; }
-    void setParent(QObject *parent);
-
-    //QObject所属的线程
-    QThread *thread() const;
-
-    //在实现Q_INVOKABLE之前先使用这种硬编码的方式
-    virtual void registerInvokeMethods() {}
-
-signals:
+Q_SIGNALS:
     void destroyed(QObject * = nullptr);
     void objectNameChanged(const QString &objectName, QPrivateSignal);
 
@@ -294,27 +280,25 @@ protected:
 
     virtual void connectNotify(const QMetaMethod &signal);
     virtual void disconnectNotify(const QMetaMethod &signal);
+
     QObject *sender() const;
     int senderSignalIndex() const;
     int receivers(const char *signal) const;
     bool isSignalConnected(const QMetaMethod &signal) const;
 
-    void registerInvokeMethod(const std::string &key, const InvokeMethod &func);
-
 private:
+    void doSetObjectName(const QString &name);
+    bool doSetProperty(const char *name, const QVariant *lvalue, QVariant *rvalue);
+
     static QMetaObject::Connection connectImpl(const QObject *sender, void **signal,
                                                const QObject *receiver, void **slotPtr,
-                                               QtPrivate::QSlotObjectBase *slot,
-                                               Qt::ConnectionType type,
+                                               QtPrivate::QSlotObjectBase *slot, Qt::ConnectionType,
                                                const int *types, const QMetaObject *senderMetaObject);
-    static bool disconnectImpl(const QObject *sender, void **signal,
-                               const QObject *receiver, void **slot,
+    static bool disconnectImpl(const QObject *sender, void **signal, const QObject *receiver, void **slot,
                                const QMetaObject *senderMetaObject);
 
 protected:
-    std::unique_ptr<QObjectData> d_ptr;
-
-    InvokeMethodMap m_invokeMethodMap;
+    QScopedPointer<QObjectData> d_ptr;  //存放私有数据的d指针
 };
 
 inline const QBindingStorage *qGetBindingStorage(const QObject *o)
@@ -326,8 +310,6 @@ inline QBindingStorage *qGetBindingStorage(QObject *o)
 {
     return o->bindingStorage();
 }
-
-Q_CORE_EXPORT QDebug operator<<(QDebug, const QObject *);
 
 QT_END_NAMESPACE
 
