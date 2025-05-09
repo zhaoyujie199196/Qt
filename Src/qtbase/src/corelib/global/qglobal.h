@@ -10,6 +10,7 @@
 #include <cstddef>
 #include <type_traits>
 #include <cmath>
+#include <utility>
 
 #include <QtCore/qconfig.h>
 #include <QtCore/qtcore-config.h>
@@ -17,6 +18,7 @@
 #include "qcompilerdetection.h"
 #include "qprocessordetection.h"
 #include "qsystemdetection.h"
+#include "qconstructormacros.h"
 
 #define QT_VERSION      QT_VERSION_CHECK(QT_VERSION_MAJOR, QT_VERSION_MINOR, QT_VERSION_PATCH)
 #define QT_VERSION_CHECK(major, minor, patch) ((major<<16)|(minor<<8)|(patch))

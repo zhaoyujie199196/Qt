@@ -48,7 +48,14 @@ struct QPropertyBindingSourceLocation
     const char *functionName = nullptr;
     quint32 line = 0;
     quint32 column = 0;
-    QPropertyBindingSourceLocation() = default;
+
+    QPropertyBindingSourceLocation(const std::source_location &location) {
+        fileName = location.file_name();
+        functionName = location.function_name();
+        line = location.line();
+        column = location.column();
+    }
+    QPropertyBindingSourceLocation() {}
 };
 
 //QProperty绑定错误

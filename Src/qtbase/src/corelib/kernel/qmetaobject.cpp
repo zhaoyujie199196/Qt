@@ -264,7 +264,7 @@ int QMetaObjectPrivate::indexOfSlot(const QMetaObject *m, const QByteArray &name
 int QMetaObjectPrivate::indexOfMethod(const QMetaObject *m, const QByteArray &name, int argc, const QArgumentType *types)
 {
     int i = indexOfMethodRelative<0>(&m, name, argc, types);
-    if (i > 0) {
+    if (i >= 0) {
         i += m->methodOffset();
     }
     return i;

@@ -13,7 +13,10 @@ class SenderObject : public QObject
 {
     Q_OBJECT
 public:
-    SenderObject() : aPublicSlotCalled(0), recursionCount(0)
+    SenderObject()
+        : QObject(),
+        aPublicSlotCalled(0),
+        recursionCount(0)
     {
     }
 
@@ -69,7 +72,8 @@ class ReceiverObject : public QObject
     Q_OBJECT
 public:
     ReceiverObject()
-        : sequence_slot1(0)
+        : QObject()
+        , sequence_slot1(0)
         , sequence_slot2(0)
         , sequence_slot3(0)
         , sequence_slot4(0)

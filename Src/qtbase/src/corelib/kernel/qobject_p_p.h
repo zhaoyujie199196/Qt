@@ -193,7 +193,6 @@ struct QObjectPrivate::ConnectionData
         if (vector) {
             memcpy(newVector, vector, sizeof(SignalVector) + (vector->allocated + 1) * sizeof(ConnectionList));
         }
-        int start = vector->count();
         for (int i = 0; i < int(size); ++i) {
             new (&newVector->at(i)) ConnectionList();
         }

@@ -1601,12 +1601,12 @@ QMetaObject::Connection QObjectPrivate::connectImpl(const QObject *sender, int s
 
 void QObjectPrivate::ConnectionData::cleanOrphanedConnections(QObject *sender, LockPolicy lockPolicy)
 {
-    //zhaoyujie TODO 为什么要判断ref？
+    //zhaoyujie TODO 为什么要判断ref？ 不知道这个 ref 在哪里被共享了，但是从代码中看起来，好像这个 ref 就应该为 1
     if (orphaned.load(std::memory_order_relaxed) && ref.loadAcquire() == 1) {
         cleanOrphanedConnectionsImpl(sender, lockPolicy);
     }
     else {
-        Q_ASSERT(false);
+        // Q_ASSERT(false);
     }
 }
 
@@ -1741,7 +1741,22 @@ void QObjectPrivate::ConnectionData::removeConnection(QObjectPrivate::Connection
 
 inline void QObjectPrivate::ConnectionData::deleteOrphaned(TaggedSignalVector o)
 {
-    Q_ASSERT(false);
+    while (o) {
+        TaggedSignalVector next = nullptr;
+        if (SignalVector *v = static_cast<SignalVector *>(o)) {
+            next = v->nextInOrphanList;
+            free(v);
+        }
+        else {
+            QObjectPrivate::Connection *c = static_cast<Connection *>(o);
+            next = c->nextInOrphanList;
+            Q_ASSERT(!c->receiver.loadRelaxed());
+            Q_ASSERT(!c->prev);
+            c->freeSlotObject();
+            c->deref();
+        }
+        o = next;
+    }
 }
 
 QObjectPrivate::Connection *QMetaObjectPrivate::connect(const QObject *sender, int signal_index, const QMetaObject *smeta,
@@ -1834,7 +1849,7 @@ bool QMetaObjectPrivate::disconnect(const QObject *sender, int signal_index, con
         if (signal_index < 0) {  //在所有信号中断开符合条件的链接
             //TODO 为什么从-1开始？
             for (int sig_index = -1; sig_index < scd->signalVectorCount(); ++sig_index) {
-                if (disconnectHelper(connections.data(), signal_index, receiver, method_index, slot, senderMutex, disconnectType)) {
+                if (disconnectHelper(connections.data(), sig_index, receiver, method_index, slot, senderMutex, disconnectType)) {
                     success = true;
                 }
             }
